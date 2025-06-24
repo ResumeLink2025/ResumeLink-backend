@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  nickname String
+
+  passwordResetTokens PasswordResetToken[] 
+}
+
+model UserAuth {
+  id               String          @id @default(uuid()) @db.Uuid
+  email            String          @unique
+  password         String?
+  authProvider     AuthProvider    @default(local)
+  authProviderId   String?         @unique
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  refreshTokens    RefreshToken[]
+
+  @@unique([authProvider, authProviderId])
+  profile          UserProfile?    @relation("UserToProfile")
+}
+
+model UserProfile {
+  id                String           @id @db.Uuid @map("id")
+  nickname          String
+  birthday          DateTime?
+  gender            Gender?
+  customSkill       Json?
+  customInterest    Json?
+  customPosition    Json?
+  experienceYears   Int              @default(0)
+  employmentStatus  EmploymentStatus?
+  imageUrl          String?
+  updatedAt         DateTime         @updatedAt
+  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id])
+}
+
+model RefreshToken {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @db.Uuid
+  token      String     @unique
+  createdAt  DateTime
+  expiresAt  DateTime
+  userAgent  String?
+  ipAddress  String? 
+  user       UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+enum AuthProvider {
+  local
+  google
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum EmploymentStatus {
+  employed
+  unemployed
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  userId     String
+  token      String   @unique
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+}

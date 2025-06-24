@@ -30,6 +30,7 @@
   "homepage": "https://github.com/Felog-Emotion-Diary/felog-backend#readme",
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
@@ -37,13 +38,16 @@
     "@types/node": "^22.15.24",
     "@types/nodemailer": "^6.4.17",
     "nodemon": "^3.1.10",
-    "prisma": "^6.8.2",
+    "prisma": "^6.10.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@prisma/client": "^6.8.2",
+    "@prisma/client": "^6.10.1",
     "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
