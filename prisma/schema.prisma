@@ -8,52 +8,54 @@ datasource db {
 }
 
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
+  id       String @id @default(uuid())
+  email    String @unique
   password String
   nickname String
 
-  passwordResetTokens PasswordResetToken[] 
+  passwordResetTokens PasswordResetToken[]
 }
 
 model UserAuth {
-  id               String          @id @default(uuid()) @db.Uuid
-  email            String          @unique
-  password         String?
-  authProvider     AuthProvider    @default(local)
-  authProviderId   String?         @unique
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  refreshTokens    RefreshToken[]
+  id             String         @id @default(uuid()) @db.Uuid
+  email          String         @unique
+  password       String?
+  authProvider   AuthProvider   @default(local)
+  authProviderId String?        @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  refreshTokens  RefreshToken[]
+  profile        UserProfile?   @relation("UserToProfile")
 
   @@unique([authProvider, authProviderId])
-  profile          UserProfile?    @relation("UserToProfile")
 }
 
 model UserProfile {
-  id                String           @id @db.Uuid @map("id")
-  nickname          String
-  birthday          DateTime?
-  gender            Gender?
-  customSkill       Json?
-  customInterest    Json?
-  customPosition    Json?
-  experienceYears   Int              @default(0)
-  employmentStatus  EmploymentStatus?
-  imageUrl          String?
-  updatedAt         DateTime         @updatedAt
-  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id])
+  id               String            @id @map("id") @db.Uuid
+  nickname         String
+  birthday         DateTime?
+  gender           Gender?
+  customSkill      Json?
+  customInterest   Json?
+  customPosition   Json?
+  experienceYears  Int               @default(0)
+  employmentStatus EmploymentStatus?
+  imageUrl         String?
+  updatedAt        DateTime          @updatedAt
+  user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
+  resumes          Resume[]
 }
 
 model RefreshToken {
-  id         String     @id @default(uuid()) @db.Uuid
-  userId     String     @db.Uuid
-  token      String     @unique
-  createdAt  DateTime
-  expiresAt  DateTime
-  userAgent  String?
-  ipAddress  String? 
-  user       UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  token     String   @unique
+  createdAt DateTime
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -74,12 +76,78 @@ enum EmploymentStatus {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(uuid())
-  userId     String
-  token      String   @unique
-  expiresAt  DateTime
-  used       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+// 추후 Project 테이블 작성시 참조하도록 수정
+model Resume {
+  id             String                @id @default(uuid())
+  profile        UserProfile           @relation(fields: [profileId], references: [id])
+  profileId      String                @db.Uuid
+  title          String
+  summary        String?
+  experienceNote String? // 개발 관련 경험(자유 필드)
+  theme          Theme                 @default(light)
+  isPublic       Boolean               @default(false)
+  categories     Category[]            @relation("ResumeCategories")
+  techStacks     TechStack[]           @relation("ResumeTechStacks")
+  activities     DevelopmentActivity[]
+  certificates   Certificate[]
+  projects       Project[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Theme {
+  light
+  dark
+}
+
+model TechStack {
+  id      String   @id @default(uuid())
+  name    String   @unique
+  resumes Resume[] @relation("ResumeTechStacks")
+}
+
+model DevelopmentActivity {
+  id          String    @id @default(uuid())
+  resume      Resume    @relation(fields: [resumeId], references: [id])
+  resumeId    String
+  title       String
+  startDate   DateTime
+  endDate     DateTime?
+  description String?
+}
+
+model Certificate {
+  id       String    @id @default(uuid())
+  resume   Resume    @relation(fields: [resumeId], references: [id])
+  resumeId String
+  name     String
+  date     DateTime?
+  grade    String?
+  issuer   String? // 발급기관
+}
+
+model Project {
+  id          String  @id @default(uuid())
+  resume      Resume  @relation(fields: [resumeId], references: [id])
+  resumeId    String
+  name        String
+  link        String?
+  description String
+}
+
+model Category {
+  id      String   @id @default(uuid())
+  name    String   @unique
+  resumes Resume[] @relation("ResumeCategories")
 }
