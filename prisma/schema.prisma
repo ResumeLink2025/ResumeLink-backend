@@ -41,6 +41,7 @@ model UserProfile {
   experienceYears  Int               @default(0)
   employmentStatus EmploymentStatus?
   imageUrl         String?
+  summary          String?           // 자기소개 추가
   updatedAt        DateTime          @updatedAt
   user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
   resumes          Resume[]

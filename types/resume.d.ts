@@ -1,32 +1,31 @@
 export interface ResumeRequestBody {
-  basicInfo: {
-    name: string;           // 이름
-    email: string;          // 이메일
-    summary: string;        // 한줄 요약
-    description: string;    // 자기소개
-  };
-  categories: string[];     // 개발자 카테고리 (백엔드, 프론트엔드 등)
-  
-  skills: string[];
+  profileId: string;        // UserProfile의 ID (필수)
+
+  title: string;            // 이력서 제목
+  summary?: string;         // UserProfile에서 불러오되 편집 가능
+  experienceNote?: string;  // 개발 관련 자유기술
+  isPublic?: boolean;       // 공개 여부 (기본값 false)
+  theme?: "light" | "dark"; // 이력서 테마 선택
+
+  categories: string[];     // 개발자 성향 키워드 (Category 테이블 참조)
 
   projects: {
-    title: string;
+    name: string;
     description: string;
+    link?: string;
   }[];
 
-  activities: {
-    title: string;           // 활동명
-    startDate: string;       // 시작일 (예: 2023.01)
-    endDate: string;         // 종료일 (예: 2023.08)
-    description: string;     // 상세 내용
+  activities?: {
+    title: string;
+    startDate: string;       // "YYYY-MM" 형식 권장
+    endDate?: string;
+    description?: string;
   }[];
 
-  certificates: {
-    name: string;            // 자격증명
-    issueDate: string;       // 취득 날짜
-    score: string;           // 취득 점수
-    organization: string;    // 발급 기관
+  certificates?: {
+    name: string;
+    date?: string;           // "YYYY-MM-DD"
+    grade?: string;          // 점수 or 급수
+    issuer?: string;         // 발급기관
   }[];
-
-  template?: "기본" | "밝은 화면" | "어두운 화면"; // 선택 가능한 템플릿
 }
