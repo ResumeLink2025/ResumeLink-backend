@@ -1,0 +1,13 @@
+have_fun: true
+code_review:
+  disable: false
+  comment_severity_threshold: MEDIUM
+  max_review_comments: -1
+  pull_request_opened:
+    help: false
+    summary: true
+    code_review: true
+  prompt: >
+    Please write all feedback on pull requests in Korean.
+    If example code is needed in the code review, please include it as well.
+ignore_patterns: []
