@@ -86,7 +86,7 @@ export class AuthController {
   }
 
   // 카카오 토큰 발급
-  async loginKaKao(req: Request, res: Response) {
+  async loginKakao(req: Request, res: Response) {
     try {
       const authCode = req.body as AuthCodeDto;
       const tokenResponse = await this.authService.CodeToToken_KaKao(authCode);
