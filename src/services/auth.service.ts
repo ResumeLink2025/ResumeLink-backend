@@ -76,7 +76,7 @@ export class AuthService {
     return {userId: user.id, accessToken: token, refreshToken}
   }
 
-  async CodeToKaKaoToken(code: AuthCodeDto) {
+  async CodeToKakaoToken(code: AuthCodeDto) {
     
     const { authCode } = code
     const tokenData = await requestKakaoToken(authCode);
