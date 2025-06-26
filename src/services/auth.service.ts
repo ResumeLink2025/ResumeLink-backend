@@ -57,7 +57,7 @@ export class AuthService {
     const { code } = input
 
     const tokens = await getGoogleTokens(code);
-    const accessToken = await tokens.access_token;
+    const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
 
     const data = await getGoogleUserInfo(accessToken)
