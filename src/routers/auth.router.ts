@@ -29,7 +29,7 @@ router.post('/login/Google', validateDto(AccessRefreshDto) ,async (req: Request,
 });
 
 router.post('/login/Kakao/getToken', validateDto(AuthCodeDto) ,async (req: Request, res: Response) => {
-  await authController.loginGoogle(req, res);
+  await authController.loginKakao(req, res);
 });
 
 router.post('/login/Kakao/getToken', validateDto(AccessRefreshDto) ,async (req: Request, res: Response) => {
