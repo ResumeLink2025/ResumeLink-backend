@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { sendResetEmail } from '../utils/sendEmail';
-import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, GoogleOAuthRequestDto } from '../dtos/auth.dto';
+import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, AccessRefreshDto, AuthCodeDto } from '../dtos/auth.dto';
 
 
 export class AuthController {
@@ -63,7 +63,7 @@ export class AuthController {
 
   // 구글 OAuth 기반 로그인
   async loginGoogle(req: Request, res: Response) {
-    const googleOAuthRequestDtoto = req.body as GoogleOAuthRequestDto;
+    const googleOAuthRequestDtoto = req.body as AccessRefreshDto;
     try {
       const {userId, accessToken, refreshToken} = await this.authService.loginGoogle(googleOAuthRequestDtoto);
 
@@ -84,6 +84,19 @@ export class AuthController {
       return res.status(401).json({ message: e });
     }
   }
+
+  // 카카오 토큰 발급
+  async loginKaKao(req: Request, res: Response) {
+    try {
+      const authCode = req.body as AuthCodeDto;
+      const tokenResponse = await this.authService.CodeToToken_KaKao(authCode);
+      res.status(200).json(tokenResponse);
+    } catch (error) {
+      console.error('카카오 토큰 발급 실패:', error);
+      res.status(500).json({ message: '토큰 발급 실패' });
+    }
+  }
+
 
   async refreshAccessToken(req: Request, res: Response) {
       try {

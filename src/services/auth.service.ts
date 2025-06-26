@@ -2,8 +2,9 @@ import { hashPassword, verifyPassword } from '../utils/bcrypt';
 import { generateAccessToken, generateRefreshToken, signToken, verifyRefreshToken } from '../utils/jwt'
 import { getGoogleUserInfo, verifyGoogleRefreshToken} from '../utils/google'
 import { AuthRepository } from '../repositories/auth.repository';
-import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, GoogleOAuthRequestDto } from '../dtos/auth.dto';
+import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, AccessRefreshDto, AuthCodeDto } from '../dtos/auth.dto';
 import { plainToInstance } from 'class-transformer';
+import { requestKakaoToken } from '../utils/kakao';
 
 export class AuthService {
   
@@ -50,7 +51,7 @@ export class AuthService {
     return responseDto
   }
 
-  async loginGoogle(input: GoogleOAuthRequestDto){
+  async loginGoogle(input: AccessRefreshDto){
     const {accessToken, refreshToken} = input
 
     const data = await getGoogleUserInfo(accessToken)
@@ -73,6 +74,20 @@ export class AuthService {
     
 
     return {userId: user.id, accessToken: token, refreshToken}
+  }
+
+  async CodeToKaKaoToken(code: AuthCodeDto) {
+    
+    const { authCode } = code
+    const tokenData = await requestKakaoToken(authCode);
+
+
+    //await this.authRepository.saveTokens(tokenData); // 선택적
+
+    return plainToInstance(AccessRefreshDto, {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+    });
   }
   
 

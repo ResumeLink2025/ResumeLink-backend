@@ -2,7 +2,7 @@ import express, { Request, Response, Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { authMiddleware } from '../middlewares/middleware.auth';
 
-import { CreateUserRequsetDto, GoogleOAuthRequestDto, LoginUserRequestDto } from '../dtos/auth.dto'
+import { CreateUserRequsetDto, AccessRefreshDto, LoginUserRequestDto } from '../dtos/auth.dto'
 import { validateDto } from '../middlewares/middleware.dto';
 
 const router = Router();
@@ -13,7 +13,7 @@ router.post('/register', validateDto(CreateUserRequsetDto), async (req: Request,
   await authController.register(req, res);
 });
 
-router.post('/login', validateDto(LoginUserRequestDto), async (req: Request, res: Response) => {
+router.post('/login/local', validateDto(LoginUserRequestDto), async (req: Request, res: Response) => {
   await authController.login(req, res);
 });
 
@@ -24,12 +24,21 @@ router.post('/registerGoogle', validateDto(CreateUserRequsetDto), async (req: Re
 
 
 
-router.post('/loginGoogle', validateDto(GoogleOAuthRequestDto) ,async (req: Request, res: Response) => {
+router.post('/login/Google', validateDto(AccessRefreshDto) ,async (req: Request, res: Response) => {
+  await authController.loginGoogle(req, res);
+});
+
+router.post('/login/Kakao/getToken', validateDto(AccessRefreshDto) ,async (req: Request, res: Response) => {
+  await authController.loginGoogle(req, res);
+});
+
+router.post('/login/Kakao/getToken', validateDto(AccessRefreshDto) ,async (req: Request, res: Response) => {
   await authController.loginGoogle(req, res);
 });
 
 
-router.post('/refresh', async (req: Request, res: Response) => {
+
+router.post('/refresh', validateDto(AccessRefreshDto) ,async (req: Request, res: Response) => {
   await authController.refreshAccessToken(req, res);
 });
 
