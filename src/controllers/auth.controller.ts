@@ -63,7 +63,7 @@ export class AuthController {
 
   // 구글 OAuth 기반 로그인
   async loginGoogle(req: Request, res: Response) {
-    const googleOAuthRequestDtoto = req.body as AccessRefreshDto;
+    const googleOAuthRequestDto = req.body as AccessRefreshDto;
     try {
       const {userId, accessToken, refreshToken} = await this.authService.loginGoogle(googleOAuthRequestDtoto);
 
