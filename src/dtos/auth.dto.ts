@@ -36,7 +36,7 @@ export class AccessRefreshDto {
 // 카카오 OAUTH 요청 DTO
 export class AuthCodeDto {
   @IsString()
-  authCode!: string;
+  code!: string;
 }
 
 // 로그인 인증 토큰 응답 DTO

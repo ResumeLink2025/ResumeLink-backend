@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
-import { sendResetEmail } from '../utils/sendEmail';
+//import { sendResetEmail } from '../utils/sendEmail';
 import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, AccessRefreshDto, AuthCodeDto } from '../dtos/auth.dto';
+import dotenv from 'dotenv';
+import { plainToInstance } from 'class-transformer';
+import { getKakaoTokens } from '../utils/kakao';
+
+dotenv.config();
 
 
 export class AuthController {
@@ -63,9 +68,14 @@ export class AuthController {
 
   // 구글 OAuth 기반 로그인
   async loginGoogle(req: Request, res: Response) {
-    const googleOAuthRequestDto = req.body as AccessRefreshDto;
+    const code = req.query.code as string;
+    
+
+    if (!code) return res.status(400).send('No code provided');
+
     try {
-      const {userId, accessToken, refreshToken} = await this.authService.loginGoogle(googleOAuthRequestDtoto);
+      const {userId, accessToken, refreshToken} = await this.authService.loginGoogle( { code } );
+      console.log(userId)
 
       res.cookie('refreshToken', refreshToken, {
           httpOnly: true,
@@ -85,15 +95,28 @@ export class AuthController {
     }
   }
 
-  // 카카오 토큰 발급
+  // 카카오 OAuth 기반 로그인
   async loginKakao(req: Request, res: Response) {
     try {
-      const authCode = req.body as AuthCodeDto;
-      const tokenResponse = await this.authService.CodeToToken_KaKao(authCode);
-      res.status(200).json(tokenResponse);
-    } catch (error) {
-      console.error('카카오 토큰 발급 실패:', error);
-      res.status(500).json({ message: '토큰 발급 실패' });
+      const code = req.query.code as string;
+
+      const {userId, accessToken, refreshToken} = await this.authService.loginKakao( { code } );
+
+      res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+          path: '/',
+        });
+
+      return res.status(200).json({ message: '로그인 성공', userId, accessToken});
+
+    } catch (e: any) {
+      if (e.message == "존재하지 않는 유저입니다.") {
+        return res.status(401).json({ message: e });
+      }
+      return res.status(401).json({ message: e });
     }
   }
 
@@ -117,7 +140,7 @@ export class AuthController {
       }
     }
 
-
+    /* 나중에 필요해지면 추가
    // 이메일로 링크 전송
   async requestPasswordReset(req: Request, res: Response) {
     try {
@@ -149,4 +172,5 @@ export class AuthController {
       return res.status(500).json({ message: error.message });
     }
   }
+    */
 }
