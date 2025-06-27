@@ -50,7 +50,7 @@ router.get('/login/google', async (req: Request, res: Response) => {
 });
 
 
-router.get('/login/kakao/', async (req: Request, res: Response) => {
+router.get('/login/kakao', async (req: Request, res: Response) => {
   await authController.loginKakao(req, res);
 });
 
