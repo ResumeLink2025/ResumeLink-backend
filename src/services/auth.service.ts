@@ -97,8 +97,6 @@ export class AuthService {
       // authProviderId는 'kakao', 식별자는 data.id
       let user = await this.authRepository.findByAuthProviderId('kakao', String(data.id));
 
-      console.log(user)
-
       if (!user) {
         const email = data.kakao_account?.email || `${data.id}@kakao.com`;
         const name = data.properties?.nickname || 'username';
