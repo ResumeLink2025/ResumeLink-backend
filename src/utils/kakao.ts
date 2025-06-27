@@ -43,21 +43,6 @@ export async function refreshKakaoAccessToken(refreshToken: string) {
   return res.data;
 }
 
-export async function requestKakaoToken(code: string): Promise<KakaoTokenResponse> {
-  const payload = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: process.env.KAKAO_CLIENT_ID as string,
-    client_secret: process.env.KAKAO_CLIENT_SECRET as string,
-    redirect_uri: process.env.KAKAO_REDIRECT_URI as string,
-  });
-
-  const { data } = await axios.post<KakaoTokenResponse>(KAKAO_TOKEN_URL, payload.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
-
-  return data;
-}
-
 export async function getKakaoUserInfo(accessToken: string) {
   const { data } = await axios.get('https://kapi.kakao.com/v2/user/me', {
     headers: {
