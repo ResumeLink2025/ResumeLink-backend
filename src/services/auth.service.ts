@@ -101,7 +101,7 @@ export class AuthService {
       console.log(user)
 
       if (!user) {
-        const email = data.kakao_account?.email || data.id.toString()+"@kakao.com";
+        const email = data.kakao_account?.email || `${data.id}@kakao.com`;
         const name = data.properties?.nickname || 'username';
 
         user = await this.authRepository.createOAuthUser('kakao', String(data.id), email, name);
