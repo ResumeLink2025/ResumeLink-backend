@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
-import { sendResetEmail } from '../utils/sendEmail';
-import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, GoogleOAuthRequestDto } from '../dtos/auth.dto';
+//import { sendResetEmail } from '../utils/sendEmail';
+import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, AccessRefreshDto, AuthCodeDto } from '../dtos/auth.dto';
+import dotenv from 'dotenv';
+import { plainToInstance } from 'class-transformer';
+import { getKakaoTokens } from '../utils/kakao';
+
+dotenv.config();
 
 
 export class AuthController {
@@ -52,20 +57,23 @@ export class AuthController {
           });
 
           return res.status(200).json({ message: '로그인 성공', userId, accessToken});
-
-      } catch (error: any) {
-          if (error.message === '이메일 또는 비밀번호가 잘못되었습니다.') {
-              return res.status(409).json({ message: error.message });
-          }
-          return res.status(500).json({ message: error.message || '로그인 실패' });
-      }
+        
+          } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
+              return res.status(401).json({ message });
+            }
     }
 
   // 구글 OAuth 기반 로그인
   async loginGoogle(req: Request, res: Response) {
-    const googleOAuthRequestDtoto = req.body as GoogleOAuthRequestDto;
+    const code = req.query.code as string;
+    
+
+    if (!code) return res.status(400).send('No code provided');
+
     try {
-      const {userId, accessToken, refreshToken} = await this.authService.loginGoogle(googleOAuthRequestDtoto);
+      const {userId, accessToken, refreshToken} = await this.authService.loginGoogle( { code } );
+      console.log(userId)
 
       res.cookie('refreshToken', refreshToken, {
           httpOnly: true,
@@ -84,6 +92,30 @@ export class AuthController {
       return res.status(401).json({ message: e });
     }
   }
+
+  // 카카오 OAuth 기반 로그인
+  async loginKakao(req: Request, res: Response) {
+    try {
+      const code = req.query.code as string;
+
+      const {userId, accessToken, refreshToken} = await this.authService.loginKakao( { code } );
+
+      res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+          path: '/',
+        });
+
+      return res.status(200).json({ message: '로그인 성공', userId, accessToken});
+
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
+          return res.status(401).json({ message });
+            }
+    }
+
 
   async refreshAccessToken(req: Request, res: Response) {
       try {
@@ -104,7 +136,7 @@ export class AuthController {
       }
     }
 
-
+    /* 나중에 필요해지면 추가
    // 이메일로 링크 전송
   async requestPasswordReset(req: Request, res: Response) {
     try {
@@ -136,4 +168,5 @@ export class AuthController {
       return res.status(500).json({ message: error.message });
     }
   }
+    */
 }

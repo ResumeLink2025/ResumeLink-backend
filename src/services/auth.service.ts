@@ -1,9 +1,10 @@
 import { hashPassword, verifyPassword } from '../utils/bcrypt';
-import { generateAccessToken, generateRefreshToken, signToken, verifyRefreshToken } from '../utils/jwt'
-import { getGoogleUserInfo, verifyGoogleRefreshToken} from '../utils/google'
+import { generateAccessToken, generateRefreshToken } from '../utils/jwt'
+import { getGoogleTokens, getGoogleUserInfo, verifyGoogleRefreshToken} from '../utils/google'
 import { AuthRepository } from '../repositories/auth.repository';
-import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, GoogleOAuthRequestDto } from '../dtos/auth.dto';
+import { CreateUserRequsetDto, AuthTokenResponseDto, LoginUserRequestDto, AccessRefreshDto, AuthCodeDto } from '../dtos/auth.dto';
 import { plainToInstance } from 'class-transformer';
+import { getKakaoTokens, getKakaoUserInfo, verifyKakaoRefreshToken } from '../utils/kakao';
 
 export class AuthService {
   
@@ -50,17 +51,23 @@ export class AuthService {
     return responseDto
   }
 
-  async loginGoogle(input: GoogleOAuthRequestDto){
-    const {accessToken, refreshToken} = input
+  // 구글 Oauth 로그인 및 신규 가입
+  async loginGoogle(input: AuthCodeDto){
+    const { code } = input
+
+    const tokens = await getGoogleTokens(code);
+    const accessToken = tokens.access_token;
+    const refreshToken = tokens.refresh_token;
 
     const data = await getGoogleUserInfo(accessToken)
-
-    if (!data.sub) throw new Error("액세스 토큰이 잘못되었습니다.");
-    let user = await this.authRepository.findByAuthProviderId('google', data.sub);
+    if (!data.id) throw new Error("액세스 토큰이 잘못되었습니다.");
+    let user = await this.authRepository.findByAuthProviderId('google', data.id);
 
     if (!user){
-       user = await this.authRepository.createOAuthUser('google', data.sub, data.email, data.name);
+       user = await this.authRepository.createOAuthUser('google', data.id, data.email, data.name);
     }
+
+    
 
     const refreshInput = {
       userId: user.id,
@@ -74,8 +81,68 @@ export class AuthService {
 
     return {userId: user.id, accessToken: token, refreshToken}
   }
-  
 
+    // 카카오 Oauth 로그인 및 신규 가입
+    async loginKakao(input: AuthCodeDto) {
+      const { code } = input;
+      const tokens = await getKakaoTokens(code)
+      const accessToken = await tokens.access_token;
+      const refreshToken = tokens.refresh_token;
+    
+      const data = await getKakaoUserInfo(accessToken);
+
+
+      if (!data.id) throw new Error("액세스 토큰이 잘못되었습니다.");
+
+      // authProviderId는 'kakao', 식별자는 data.id
+      let user = await this.authRepository.findByAuthProviderId('kakao', String(data.id));
+
+      if (!user) {
+        const email = data.kakao_account?.email || `${data.id}@kakao.com`;
+        const name = data.properties?.nickname || 'username';
+
+        user = await this.authRepository.createOAuthUser('kakao', String(data.id), email, name);
+      }
+
+      const refreshInput = {
+        userId: user.id,
+        token: refreshToken,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+      };
+
+      await this.authRepository.updateRefreshToken(refreshInput);
+
+      const token = generateAccessToken({ userId: user.id });
+
+      return {
+        userId: user.id,
+        accessToken: token,
+        refreshToken,
+      };
+    }
+
+    async refreshAccessToken(refreshToken: string): Promise<string> {
+      const tokenRecord = await this.authRepository.findRefreshToken(refreshToken);
+      if (!tokenRecord) throw new Error('Refresh token not found');
+
+      if (tokenRecord.expiresAt < new Date()) throw new Error('Refresh token expired');
+
+      const user = await this.authRepository.findById(tokenRecord.userId);
+      if (!user) throw new Error('User not found');
+
+      if (user.authProvider === 'google') {
+        const valid = await verifyGoogleRefreshToken(refreshToken);
+        if (!valid) throw new Error('Invalid Google refresh token');
+      } else if (user.authProvider === 'kakao') {
+        const valid = await verifyKakaoRefreshToken(refreshToken);
+        if (!valid) throw new Error('Invalid Kakao refresh token');
+      }
+      // 'local' provider의 경우, DB에 토큰이 있고 만료되지 않았다면 유효한 것으로 간주합니다.
+
+      return generateAccessToken({ userId: user.id });
+    }
+  
+  /*
   // 이메일 입력 후 토큰 생성
   async requestPasswordReset(email: string): Promise<string> {
     const user = await this.authRepository.findByEmail(email);
@@ -87,28 +154,10 @@ export class AuthService {
     await this.authRepository.createPasswordResetToken(user.id, token, expiresAt);
     return token;
   }
+    */
 
-  async refreshAccessToken(refreshToken: string) {
 
-    const tokenRecord = await this.authRepository.findRefreshToken(refreshToken);
-    if (!tokenRecord) throw new Error('Refresh token not found');
-
-    if (tokenRecord.expiresAt < new Date()) throw new Error('Refresh token expired');
-
-    const user = await this.authRepository.findById(tokenRecord.userId);
-    if (!user) throw new Error('User not found');
-
-    if (user.authProvider === 'google') {
-      const clientId = process.env.GOOGLE_CLIENT_ID as string;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET as string;
-
-      const valid = await verifyGoogleRefreshToken(refreshToken, clientId, clientSecret);
-      if (!valid) throw new Error('Invalid Google refresh token');
-    }
-
-    return generateAccessToken({ userId: user.id });
-  }
-
+  /* 나중에 필요해지면 추가
   // 토큰 유효성 검사 후 비밀번호 재설정
   async resetPassword(token: string, newPassword: string) {
     const resetToken = await this.authRepository.findResetToken(token);
@@ -122,4 +171,5 @@ export class AuthService {
 
     return { success: true };
   }
+    */
 }

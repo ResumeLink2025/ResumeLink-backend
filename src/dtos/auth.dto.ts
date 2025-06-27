@@ -25,13 +25,18 @@ export class LoginUserRequestDto {
   password!: string;
 }
 
-// 구글 OAUTH 요청 DTO
-export class GoogleOAuthRequestDto {
+export class AccessRefreshDto {
   @IsString()
   accessToken!: string;
 
   @IsString()
   refreshToken!: string;
+}
+
+// 카카오 OAUTH 요청 DTO
+export class AuthCodeDto {
+  @IsString()
+  code!: string;
 }
 
 // 로그인 인증 토큰 응답 DTO

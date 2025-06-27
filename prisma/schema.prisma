@@ -60,6 +60,7 @@ model RefreshToken {
 enum AuthProvider {
   local
   google
+  kakao
 }
 
 enum Gender {
