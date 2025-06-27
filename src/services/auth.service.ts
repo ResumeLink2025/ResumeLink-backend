@@ -124,7 +124,7 @@ export class AuthService {
       };
     }
 
-    async refreshAccessToken(refreshToken: string) {
+    async refreshAccessToken(refreshToken: string): Promise<string> {
       const tokenRecord = await this.authRepository.findRefreshToken(refreshToken);
       if (!tokenRecord) throw new Error('Refresh token not found');
 
@@ -136,14 +136,14 @@ export class AuthService {
       if (user.authProvider === 'google') {
         const valid = await verifyGoogleRefreshToken(refreshToken);
         if (!valid) throw new Error('Invalid Google refresh token');
-      }
-      if (user.authProvider === 'kakao') {
+      } else if (user.authProvider === 'kakao') {
         const valid = await verifyKakaoRefreshToken(refreshToken);
         if (!valid) throw new Error('Invalid Kakao refresh token');
+      }
+      // 'local' provider의 경우, DB에 토큰이 있고 만료되지 않았다면 유효한 것으로 간주합니다.
 
       return generateAccessToken({ userId: user.id });
     }
-  }
   
   /*
   // 이메일 입력 후 토큰 생성
