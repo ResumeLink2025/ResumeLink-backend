@@ -83,7 +83,89 @@ export const resumeService = {
       throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
     }
 
-    return resumeRepository.updateResume(resumeId, updateData);
+    const {
+      title,
+      summary,
+      experienceNote,
+      isPublic,
+      theme,
+      categories,
+      skills,
+      positions,
+      projects,
+      activities,
+      certificates,
+    } = updateData;
+
+    // 스칼라 필드 업데이트
+    const updatePayload: any = {};
+    if (title !== undefined) updatePayload.title = title;
+    if (summary !== undefined) updatePayload.summary = summary;
+    if (experienceNote !== undefined) updatePayload.experienceNote = experienceNote;
+    if (isPublic !== undefined) updatePayload.isPublic = isPublic;
+    if (theme !== undefined) updatePayload.theme = theme;
+
+    // 관계 필드 처리
+    if (categories) {
+      updatePayload.categories = {
+        set: categories.map((name) => ({ name })),
+      };
+    }
+
+    if (skills) {
+      updatePayload.skills = {
+        set: skills.map((name) => ({ name })),
+      };
+    }
+
+    if (positions) {
+      const positionRecords = await prisma.position.findMany({
+        where: {
+          name: {
+            in: positions,
+          },
+        },
+      });
+      updatePayload.positions = {
+        set: positionRecords.map((pos) => ({ id: pos.id })),
+      };
+    }
+
+    // 이력서 업데이트
+    await prisma.resume.update({
+      where: { id: resumeId },
+      data: updatePayload,
+    });
+
+    // 1:N 관계 처리 (완전 교체 방식)
+    if (projects) {
+      await prisma.project.deleteMany({ where: { resumeId } });
+      await prisma.project.createMany({
+        data: projects.map((p) => ({ ...p, resumeId })),
+      });
+    }
+
+    if (activities) {
+      await prisma.developmentActivity.deleteMany({ where: { resumeId } });
+      await prisma.developmentActivity.createMany({
+        data: activities.map((a) => ({ ...a, resumeId })),
+      });
+    }
+
+    if (certificates) {
+      await prisma.certificate.deleteMany({ where: { resumeId } });
+      await prisma.certificate.createMany({
+        data: certificates.map((c) => ({
+          name: c.name,
+          date: c.date ? new Date(c.date) : undefined,
+          grade: c.grade,
+          issuer: c.issuer,
+          resumeId,
+        })),
+      });
+    }
+
+    return resumeRepository.getResumeById(resumeId);
   },
 
   deleteResume: async (resumeId: string, userId: string) => {

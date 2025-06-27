@@ -4,7 +4,7 @@ import { resumeService } from "../services/resume.service";
 export const resumeController = {
   create: async (req: Request, res: Response) => {
     try {
-      const { userId } = req.user!; // authMiddleware에서 userId 추출
+      const { userId } = req.user!;
       const resume = await resumeService.createResumeWithAI(userId, req.body);
       res.status(201).json(resume);
     } catch (error) {
@@ -41,9 +41,12 @@ export const resumeController = {
       const { userId } = req.user!;
       const updated = await resumeService.updateResume(id, userId, req.body);
       res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
       console.error("이력서 수정 실패:", error);
-      res.status(403).json({ message: "이력서 수정 권한이 없거나 오류 발생" });
+      const message = error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")
+        ? error.message
+        : "이력서 수정 중 오류 발생";
+      res.status(403).json({ message });
     }
   },
 
@@ -53,9 +56,12 @@ export const resumeController = {
       const { userId } = req.user!;
       await resumeService.deleteResume(id, userId);
       res.status(204).send();
-    } catch (error) {
+    } catch (error: any) {
       console.error("이력서 삭제 실패:", error);
-      res.status(403).json({ message: "이력서 삭제 권한이 없거나 오류 발생" });
+      const message = error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")
+        ? error.message
+        : "이력서 삭제 중 오류 발생";
+      res.status(403).json({ message });
     }
   },
 };
