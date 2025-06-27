@@ -57,13 +57,11 @@ export class AuthController {
           });
 
           return res.status(200).json({ message: '로그인 성공', userId, accessToken});
-
-      } catch (error: any) {
-          if (error.message === '이메일 또는 비밀번호가 잘못되었습니다.') {
-              return res.status(409).json({ message: error.message });
-          }
-          return res.status(500).json({ message: error.message || '로그인 실패' });
-      }
+        
+          } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
+              return res.status(401).json({ message });
+            }
     }
 
   // 구글 OAuth 기반 로그인
@@ -112,13 +110,11 @@ export class AuthController {
 
       return res.status(200).json({ message: '로그인 성공', userId, accessToken});
 
-    } catch (e: any) {
-      if (e.message == "존재하지 않는 유저입니다.") {
-        return res.status(401).json({ message: e });
-      }
-      return res.status(401).json({ message: e });
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
+          return res.status(401).json({ message });
+            }
     }
-  }
 
 
   async refreshAccessToken(req: Request, res: Response) {
