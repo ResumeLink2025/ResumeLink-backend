@@ -8,6 +8,8 @@ export interface ResumeRequestBody {
   theme?: "light" | "dark"; // 이력서 테마 선택
 
   categories: string[];     // 개발자 성향 키워드 (Category 테이블 참조)
+  skills: string[];         // 기술 스택 이름들 (UserSkill + customSkill 포함)
+  positions: string[];      // 직군 이름들 (DesirePosition + customPosition 포함)
 
   projects: {
     name: string;

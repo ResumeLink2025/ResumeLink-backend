@@ -4,17 +4,18 @@ import { resumeService } from "../services/resume.service";
 export const resumeController = {
   create: async (req: Request, res: Response) => {
     try {
-      const { profileId } = req.body;
-      const resume = await resumeService.createResumeWithAI(profileId, req.body);
+      const { userId } = req.user!; // authMiddleware에서 userId 추출
+      const resume = await resumeService.createResumeWithAI(userId, req.body);
       res.status(201).json(resume);
     } catch (error) {
       console.error("이력서 생성 실패:", error);
       res.status(500).json({ message: "이력서 생성 중 오류 발생" });
     }
   },
+
   getAllByUser: async (req: Request, res: Response) => {
     try {
-      const { userId } = req.user!; // authMiddleware에서 추가됨
+      const { userId } = req.user!;
       const resumes = await resumeService.getResumesByUserId(userId);
       res.json(resumes);
     } catch (error) {

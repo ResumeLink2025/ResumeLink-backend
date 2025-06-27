@@ -2,17 +2,17 @@ import { ResumeRequestBody } from "../../types/resume";
 
 export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
   name: string;
-  position: string;
-  techStacks: string[];
+  position: string;      // 쉼표로 이어진 포지션 리스트
+  skills: string[];      // 기술 스택 배열
   summary: string;
 }) {
   const {
     name,
-    position = "",
+    position,
     summary,
     experienceNote = "",
     categories,
-    techStacks,
+    skills,
     projects,
     activities = [],
     certificates = [],
@@ -36,11 +36,11 @@ export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
 출력 스키마:
 {
   "name": string,
-  "position": string,
+  "position": string[],
   "summary": string,
   "description": string,
   "categories": string[],
-  "techStacks": string[],
+  "skills": string[],
   "projects": [{ "title": string, "description": string }],
   "activities": [{ "title": string, "startDate": string, "endDate": string, "description": string }],
   "certificates": [{ "name": string, "issueDate": string, "score": string, "organization": string }]
@@ -52,7 +52,7 @@ export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
 - 한줄 요약: ${summary}
 
 - 개발자 카테고리: ${categories.join(", ")}
-- 기술 스택: ${techStacks.join(", ")}
+- 기술 스택: ${skills.join(", ")}
 
 - 자유 입력 개발 경험:
 ${experienceNote}

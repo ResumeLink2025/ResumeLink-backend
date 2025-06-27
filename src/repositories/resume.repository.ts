@@ -5,11 +5,21 @@ export const resumeRepository = {
     return prisma.userProfile.findUnique({ where: { id } });
   },
 
-  createResume: (
+  createResume: async (
     profileId: string,
     experienceNote: string | undefined,
-    data: any,
+    data: any
   ) => {
+    const positionRecords = await prisma.position.findMany({
+      where: {
+        name: {
+          in: Array.isArray(data.positions) ? data.positions : [],
+        },
+      },
+    });
+
+    const positionIds = positionRecords.map((pos) => ({ id: pos.id }));
+
     return prisma.resume.create({
       data: {
         profileId,
@@ -24,11 +34,14 @@ export const resumeRepository = {
             create: { name },
           })),
         },
-        techStacks: {
-          connectOrCreate: data.techStacks.map((name: string) => ({
+        skills: {
+          connectOrCreate: data.skills.map((name: string) => ({
             where: { name },
             create: { name },
           })),
+        },
+        positions: {
+          connect: positionIds,
         },
         projects: {
           create: data.projects,
@@ -53,7 +66,8 @@ export const resumeRepository = {
       where: { profileId },
       include: {
         categories: true,
-        techStacks: true,
+        skills: true,
+        positions: true,
         projects: true,
         activities: true,
         certificates: true,
@@ -66,7 +80,8 @@ export const resumeRepository = {
       where: { id: resumeId },
       include: {
         categories: true,
-        techStacks: true,
+        skills: true,
+        positions: true,
         projects: true,
         activities: true,
         certificates: true,
@@ -83,7 +98,6 @@ export const resumeRepository = {
         experienceNote: updateData.experienceNote,
         isPublic: updateData.isPublic,
         theme: updateData.theme,
-        // 단순하게 업데이트만 가능하게 구성, 연관 테이블은 별도 처리 필요
       },
     });
   },

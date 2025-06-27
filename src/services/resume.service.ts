@@ -2,17 +2,40 @@ import { buildNarrativeJsonPrompt } from "../utils/prompt";
 import { generateGeminiText } from "../lib/gemini";
 import { resumeRepository } from "../repositories/resume.repository";
 import { ResumeRequestBody } from "../../types/resume";
+import prisma from "../lib/prisma";
 
 export const resumeService = {
-  createResumeWithAI: async (profileId: string, requestBody: ResumeRequestBody) => {
-    const userProfile = await resumeRepository.getProfile(profileId);
+  createResumeWithAI: async (userId: string, requestBody: ResumeRequestBody) => {
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { id: userId },
+    });
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
+
+    const userSkills = await prisma.userSkill.findMany({
+      where: { uid: userProfile.id },
+      include: { skill: true },
+    });
+
+    const desirePositions = await prisma.desirePosition.findMany({
+      where: { uid: userProfile.id },
+      include: { position: true },
+    });
 
     const geminiInput = {
       ...requestBody,
       name: userProfile.nickname,
-      position: userProfile.customPosition ?? "",
-      techStacks: userProfile.customSkill ?? [],
+      skills: [
+        ...userSkills.map((us) => us.skill.name),
+        ...(Array.isArray(userProfile.customSkill)
+          ? userProfile.customSkill.filter((s): s is string => typeof s === "string")
+          : []),
+      ],
+      position: [
+        ...desirePositions.map((dp) => dp.position.name),
+        ...(Array.isArray(userProfile.customPosition)
+          ? userProfile.customPosition.filter((p): p is string => typeof p === "string")
+          : []),
+      ].join(", "),
       summary: userProfile.summary ?? "",
     };
 
@@ -20,37 +43,57 @@ export const resumeService = {
     const aiResult = await generateGeminiText(prompt);
     const parsed = JSON.parse(aiResult);
 
-    return resumeRepository.createResume(profileId, requestBody.experienceNote, parsed);
-  },
-    getResumesByUserId: async (userId: string) => {
-    return resumeRepository.getResumesByProfile(userId);
+    return resumeRepository.createResume(
+      userProfile.id,
+      requestBody.experienceNote,
+      {
+        ...parsed,
+        positions: parsed.positions, // position 이름 배열 그대로 넘김
+      }
+    );
   },
 
-  // 단일 이력서 조회
+  getResumesByUserId: async (userId: string) => {
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { id: userId },
+    });
+    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
+
+    return resumeRepository.getResumesByProfile(userProfile.id);
+  },
+
   getResumeById: async (resumeId: string) => {
     const resume = await resumeRepository.getResumeById(resumeId);
     if (!resume) throw new Error("해당 이력서를 찾을 수 없습니다.");
     return resume;
   },
 
-  // 이력서 수정
   updateResume: async (
     resumeId: string,
-    profileId: string,
+    userId: string,
     updateData: Partial<ResumeRequestBody>
   ) => {
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { id: userId },
+    });
+    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
+
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.profileId !== profileId) {
+    if (!resume || resume.profileId !== userProfile.id) {
       throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
     }
 
     return resumeRepository.updateResume(resumeId, updateData);
   },
 
-  // 이력서 삭제
-  deleteResume: async (resumeId: string, profileId: string) => {
+  deleteResume: async (resumeId: string, userId: string) => {
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { id: userId },
+    });
+    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
+
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.profileId !== profileId) {
+    if (!resume || resume.profileId !== userProfile.id) {
       throw new Error("삭제 권한이 없거나 이력서를 찾을 수 없습니다.");
     }
 

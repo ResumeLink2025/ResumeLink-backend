@@ -26,6 +26,8 @@ model UserAuth {
   updatedAt      DateTime       @updatedAt
   refreshTokens  RefreshToken[]
   profile        UserProfile?   @relation("UserToProfile")
+  userSkills     UserSkill[]       // UserSkill와의 관계
+  desirePositions DesirePosition[] // DesirePosition와의 관계
 
   @@unique([authProvider, authProviderId])
 }
@@ -45,6 +47,19 @@ model UserProfile {
   updatedAt        DateTime          @updatedAt
   user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
   resumes          Resume[]
+}
+
+model UserSkill {
+  id   String   @id @default(uuid()) @db.Uuid
+  uid  String   @db.Uuid
+  sid  String   @db.Uuid
+
+  user  UserAuth @relation(fields: [uid], references: [id], onDelete: Cascade)
+  skill Skill    @relation(fields: [sid], references: [id], onDelete: Cascade)
+
+  @@unique([uid, sid])
+  @@index([uid])
+  @@index([sid])
 }
 
 model RefreshToken {
@@ -89,22 +104,22 @@ model PasswordResetToken {
 
 // 추후 Project 테이블 작성시 참조하도록 수정
 model Resume {
-  id             String                @id @default(uuid())
-  profile        UserProfile           @relation(fields: [profileId], references: [id])
-  profileId      String                @db.Uuid
+  id             String       @id @default(uuid())
+  profile        UserProfile  @relation(fields: [profileId], references: [id])
+  profileId      String       @db.Uuid
   title          String
   summary        String?
-  experienceNote String? // 개발 관련 경험(자유 필드)
-  theme          Theme                 @default(light)
-  isPublic       Boolean               @default(false)
-  categories     Category[]            @relation("ResumeCategories")
-  techStacks     TechStack[]           @relation("ResumeTechStacks")
+  experienceNote String?
+  theme          Theme        @default(light)
+  isPublic       Boolean      @default(false)
+  positions      Position[]   @relation("ResumePositions")
+  categories     Category[]   @relation("ResumeCategories")
+  skills         Skill[]      @relation("ResumeSkills")
   activities     DevelopmentActivity[]
   certificates   Certificate[]
   projects       Project[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 enum Theme {
@@ -112,10 +127,11 @@ enum Theme {
   dark
 }
 
-model TechStack {
-  id      String   @id @default(uuid())
-  name    String   @unique
-  resumes Resume[] @relation("ResumeTechStacks")
+model Skill {
+  id         String       @id @default(uuid()) @db.Uuid
+  name       String       @unique
+  userSkills UserSkill[]
+  resumes    Resume[]     @relation("ResumeSkills") // 관계 이름도 함께 변경
 }
 
 model DevelopmentActivity {
@@ -151,4 +167,24 @@ model Category {
   id      String   @id @default(uuid())
   name    String   @unique
   resumes Resume[] @relation("ResumeCategories")
+}
+
+model Position {
+  id        String            @id @default(uuid()) @db.Uuid
+  name      String            @unique
+  resumes   Resume[]          @relation("ResumePositions")
+  desiredBy DesirePosition[]
+}
+
+model DesirePosition {
+  id        String     @id @default(uuid()) @db.Uuid
+  uid       String     @db.Uuid
+  jid       String     @db.Uuid
+
+  user      UserAuth   @relation(fields: [uid], references: [id], onDelete: Cascade)
+  position  Position   @relation(fields: [jid], references: [id], onDelete: Cascade)
+
+  @@unique([uid, jid])
+  @@index([uid])
+  @@index([jid])
 }
