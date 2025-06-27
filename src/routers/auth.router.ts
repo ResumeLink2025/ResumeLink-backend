@@ -54,7 +54,7 @@ router.get('/login/kakao/', async (req: Request, res: Response) => {
   await authController.loginKakao(req, res);
 });
 
-router.post('/refresh', validateDto(AccessRefreshDto) ,async (req: Request, res: Response) => {
+router.post('/refresh', async (req: Request, res: Response) => {
   await authController.refreshAccessToken(req, res);
 });
 
