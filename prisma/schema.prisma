@@ -8,52 +8,58 @@ datasource db {
 }
 
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
+  id       String @id @default(uuid())
+  email    String @unique
   password String
   nickname String
 
-  passwordResetTokens PasswordResetToken[] 
+  passwordResetTokens PasswordResetToken[]
 }
 
 model UserAuth {
-  id               String          @id @default(uuid()) @db.Uuid
-  email            String          @unique
-  password         String?
-  authProvider     AuthProvider    @default(local)
-  authProviderId   String?         @unique
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  refreshTokens    RefreshToken[]
+  id             String         @id @default(uuid()) @db.Uuid
+  email          String         @unique
+  password       String?
+  authProvider   AuthProvider   @default(local)
+  authProviderId String?        @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  refreshTokens  RefreshToken[]
+
+  requestedChats  CoffeeChat[]      @relation("RequestedChats")
+  receivedChats   CoffeeChat[]      @relation("ReceivedChats")
+  profile         UserProfile?      @relation("UserToProfile")
+  ChatParticipant ChatParticipant[]
+  Message         Message[]
 
   @@unique([authProvider, authProviderId])
-  profile          UserProfile?    @relation("UserToProfile")
 }
 
 model UserProfile {
-  id                String           @id @db.Uuid @map("id")
-  nickname          String
-  birthday          DateTime?
-  gender            Gender?
-  customSkill       Json?
-  customInterest    Json?
-  customPosition    Json?
-  experienceYears   Int              @default(0)
-  employmentStatus  EmploymentStatus?
-  imageUrl          String?
-  updatedAt         DateTime         @updatedAt
-  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id])
+  id               String            @id @map("id") @db.Uuid
+  nickname         String
+  birthday         DateTime?
+  gender           Gender?
+  customSkill      Json?
+  customInterest   Json?
+  customPosition   Json?
+  experienceYears  Int               @default(0)
+  employmentStatus EmploymentStatus?
+  imageUrl         String?
+  updatedAt        DateTime          @updatedAt
+  user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
 }
 
 model RefreshToken {
-  id         String     @id @default(uuid()) @db.Uuid
-  userId     String     @db.Uuid
-  token      String     @unique
-  createdAt  DateTime
-  expiresAt  DateTime
-  userAgent  String?
-  ipAddress  String? 
-  user       UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  token     String   @unique
+  createdAt DateTime
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -74,12 +80,68 @@ enum EmploymentStatus {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(uuid())
-  userId     String
-  token      String   @unique
-  expiresAt  DateTime
-  used       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum CoffeeChatStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+}
+
+model CoffeeChat {
+  id          String           @id @default(uuid()) @db.Uuid
+  requesterId String           @db.Uuid
+  receiverId  String           @db.Uuid
+  status      CoffeeChatStatus @default(pending)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  requester UserAuth @relation("RequestedChats", fields: [requesterId], references: [id])
+  receiver  UserAuth @relation("ReceivedChats", fields: [receiverId], references: [id])
+
+  chatRoom ChatRoom?
+}
+
+model ChatRoom {
+  id           String   @id @default(uuid()) @db.Uuid
+  coffeeChatId String?  @unique @db.Uuid
+  createdAt    DateTime @default(now())
+
+  coffeeChat   CoffeeChat?       @relation(fields: [coffeeChatId], references: [id])
+  participants ChatParticipant[]
+  messages     Message[]
+}
+
+model ChatParticipant {
+  id                String  @id @default(uuid()) @db.Uuid
+  chatRoomId        String  @db.Uuid
+  userId            String  @db.Uuid
+  lastReadMessageId String?
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
+  user     UserAuth @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(uuid()) @db.Uuid
+  chatRoomId String   @db.Uuid
+  senderId   String   @db.Uuid
+  text       String?
+  fileUrl    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isEdited   Boolean  @default(false)
+  isDeleted  Boolean  @default(false)
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
+  sender   UserAuth @relation(fields: [senderId], references: [id])
 }
