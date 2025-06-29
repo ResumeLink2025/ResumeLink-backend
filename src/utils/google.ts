@@ -12,7 +12,7 @@ interface GoogleUserInfo {
 }
 
 export async function getGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {
-  const response = await axios.get('https://openidconnect.googleapis.com/v1/userinfo', {
+  const response = await axios.get<GoogleUserInfo>('https://openidconnect.googleapis.com/v1/userinfo', {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
