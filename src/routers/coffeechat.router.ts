@@ -20,7 +20,7 @@ router.post('/:id/status', validateDto(UpdateCoffeeChatStatusDto), async (req: R
 });
 
 // 커피챗 목록 통합 조회
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', validateDto(GetCoffeeChatsQueryDto, 'query'), async (req: Request, res: Response) => {
   await coffeechatController.getCoffeeChats(req, res);
 });
 
