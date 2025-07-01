@@ -118,6 +118,7 @@ export class AuthRepository {
     });
   }
 
+/* 나중에 필요해지면 추가
   // PasswordResetToken 조회
   async findResetToken(token: string): Promise<PasswordResetToken | null> {
     return prisma.passwordResetToken.findUnique({
@@ -140,5 +141,5 @@ export class AuthRepository {
       data: { used: true },
     });
   }
-
+*/
 }
