@@ -1,11 +1,7 @@
 import coffeechatRepository from '../repositories/coffeechat.repository';
 // import userRepository from '../repositories/user.repository'; // 비활성화 유저 검증용 (필요시)
 import { CoffeeChatStatus } from '@prisma/client';
-
-interface ServiceError {
-  status: number;
-  message: string;
-}
+import { ServiceError } from '../utils/ServiceError';
 
 const coffeechatService = {
   /**
@@ -18,8 +14,7 @@ const coffeechatService = {
    */
   async createCoffeeChat(requesterId: string, receiverId: string) {
     if (requesterId === receiverId) {
-      const error: ServiceError = { status: 400, message: '본인에게는 커피챗을 신청할 수 없습니다.' };
-      throw error;
+      throw new ServiceError(400, '본인에게는 커피챗을 신청할 수 없습니다.');
     }
 
     // (Optional) 비활성화 유저 체크
@@ -32,8 +27,7 @@ const coffeechatService = {
     // 중복 대기 커피챗 체크
     const exist = await coffeechatRepository.findPendingBetween(requesterId, receiverId);
     if (exist) {
-      const error: ServiceError = { status: 409, message: '이미 대기 중인 커피챗이 있습니다.' };
-      throw error;
+      throw new ServiceError(409, '이미 대기 중인 커피챗이 있습니다.');
     }
 
     return coffeechatRepository.createCoffeeChat(requesterId, receiverId);
@@ -51,16 +45,13 @@ const coffeechatService = {
   async updateStatus(coffeeChatId: string, status: CoffeeChatStatus, userId: string) {
     const chat = await coffeechatRepository.getCoffeeChatDetail(coffeeChatId);
     if (!chat) {
-      const error: ServiceError = { status: 404, message: '해당 커피챗이 존재하지 않습니다.' };
-      throw error;
+      throw new ServiceError(404, '해당 커피챗이 존재하지 않습니다.');
     }
     if (chat.receiverId !== userId) {
-      const error: ServiceError = { status: 403, message: '수락/거절은 받은 사람만 할 수 있습니다.' };
-      throw error;
+      throw new ServiceError(403, '수락/거절은 받은 사람만 할 수 있습니다.');
     }
     if (chat.status !== 'pending') {
-      const error: ServiceError = { status: 400, message: '이미 처리된 커피챗입니다.' };
-      throw error;
+      throw new ServiceError(400, '이미 처리된 커피챗입니다.');
     }
 
     // 상대방이 비활성화 유저인지 체크
@@ -101,12 +92,10 @@ const coffeechatService = {
   async getCoffeeChatDetail(coffeeChatId: string, userId: string) {
     const chat = await coffeechatRepository.getCoffeeChatDetail(coffeeChatId);
     if (!chat) {
-      const error: ServiceError = { status: 404, message: '해당 커피챗이 존재하지 않습니다.' };
-      throw error;
+      throw new ServiceError(404, '해당 커피챗이 존재하지 않습니다.');
     }
     if (chat.requesterId !== userId && chat.receiverId !== userId) {
-      const error: ServiceError = { status: 403, message: '해당 커피챗에 접근할 권한이 없습니다.' };
-      throw error;
+      throw new ServiceError(403, '해당 커피챗에 접근할 권한이 없습니다.');
     }
     return chat;
   },
@@ -122,16 +111,13 @@ const coffeechatService = {
   async cancelCoffeeChat(coffeeChatId: string, userId: string) {
     const chat = await coffeechatRepository.getCoffeeChatDetail(coffeeChatId);
     if (!chat) {
-      const error: ServiceError = { status: 404, message: '해당 커피챗이 존재하지 않습니다.' };
-      throw error;
+      throw new ServiceError(404, '해당 커피챗이 존재하지 않습니다.');
     }
     if (chat.requesterId !== userId) {
-      const error: ServiceError = { status: 403, message: '본인이 신청한 커피챗만 취소할 수 있습니다.' };
-      throw error;
+      throw new ServiceError(403, '본인이 신청한 커피챗만 취소할 수 있습니다.');
     }
     if (chat.status !== 'pending') {
-      const error: ServiceError = { status: 400, message: '이미 처리된 커피챗은 취소할 수 없습니다.' };
-      throw error;
+      throw new ServiceError(400, '이미 처리된 커피챗은 취소할 수 없습니다.');
     }
 
     return coffeechatRepository.cancelCoffeeChat(coffeeChatId, userId);
