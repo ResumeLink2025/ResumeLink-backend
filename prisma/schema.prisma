@@ -136,7 +136,7 @@ model Skill {
 
 model DevelopmentActivity {
   id          String    @id @default(uuid())
-  resume      Resume    @relation(fields: [resumeId], references: [id])
+  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   resumeId    String
   title       String
   startDate   DateTime
@@ -146,7 +146,7 @@ model DevelopmentActivity {
 
 model Certificate {
   id       String    @id @default(uuid())
-  resume   Resume    @relation(fields: [resumeId], references: [id])
+  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   resumeId String
   name     String
   date     DateTime?
@@ -156,7 +156,7 @@ model Certificate {
 
 model Project {
   id          String  @id @default(uuid())
-  resume      Resume  @relation(fields: [resumeId], references: [id])
+  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   resumeId    String
   name        String
   link        String?

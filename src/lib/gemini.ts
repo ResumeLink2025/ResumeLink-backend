@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error('GEMINI_API_KEY가 환경변수에 설정되지 않았습니다.');
+}
+const ai = new GoogleGenAI({ apiKey });
 
 export async function generateGeminiText(prompt: string): Promise<string> {
   const result = await ai.models.generateContent({

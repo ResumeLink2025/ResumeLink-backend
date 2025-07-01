@@ -1,4 +1,6 @@
+import { Resume } from "@prisma/client";
 import prisma from "../lib/prisma";
+import { ResumeRequestBody } from "../../types/resume";
 
 export const resumeRepository = {
   getProfile: (id: string) => {
@@ -8,7 +10,7 @@ export const resumeRepository = {
   createResume: async (
     profileId: string,
     experienceNote: string | undefined,
-    data: any
+    data: ResumeRequestBody
   ) => {
     const positionRecords = await prisma.position.findMany({
       where: {
@@ -50,13 +52,13 @@ export const resumeRepository = {
           create: data.activities,
         },
         certificates: {
-          create: data.certificates.map((cert: any) => ({
+          create: (data.certificates ?? []).map((cert: any) => ({
             name: cert.name,
-            date: new Date(cert.issueDate),
-            grade: cert.score,
-            issuer: cert.organization,
-          })),
-        },
+            date: cert.date ? new Date(cert.date) : undefined,
+            grade: cert.grade,
+            issuer: cert.issuer,
+  })),
+},
       },
     });
   },
@@ -106,96 +108,91 @@ updateResume: async (resumeId: string, updateData: any) => {
 
   const updatePayload: any = {};
 
-  // 스칼라 필드
   if (title !== undefined) updatePayload.title = title;
   if (summary !== undefined) updatePayload.summary = summary;
   if (experienceNote !== undefined) updatePayload.experienceNote = experienceNote;
   if (isPublic !== undefined) updatePayload.isPublic = isPublic;
   if (theme !== undefined) updatePayload.theme = theme;
 
-  // N:M 관계 필드 처리
   if (categories) {
     updatePayload.categories = {
-      set: categories.map((name: string) => ({
-        name,
-      })),
+      set: categories.map((name: string) => ({ name })),
     };
   }
 
   if (skills) {
     updatePayload.skills = {
-      set: skills.map((name: string) => ({
-        name,
-      })),
+      set: skills.map((name: string) => ({ name })),
     };
   }
 
   if (positions) {
     const positionRecords = await prisma.position.findMany({
-      where: {
-        name: {
-          in: positions,
-        },
-      },
+      where: { name: { in: positions } },
     });
-
     updatePayload.positions = {
       set: positionRecords.map((pos) => ({ id: pos.id })),
     };
   }
 
-  // 1. Resume 본체 + 다대다 필드 수정
-  const updatedResume = await prisma.resume.update({
-    where: { id: resumeId },
-    data: updatePayload,
-  });
-
-  // 2. 1:N 관계 필드 (완전 교체 방식)
-  if (projects) {
-    await prisma.project.deleteMany({ where: { resumeId } });
-    await prisma.project.createMany({
-      data: projects.map((proj: any) => ({
-        ...proj,
-        resumeId,
-      })),
+  return await prisma.$transaction(async (tx) => {
+    // 1. resume 본체 + 다대다 필드 업데이트
+    await tx.resume.update({
+      where: { id: resumeId },
+      data: updatePayload,
     });
-  }
 
-  if (activities) {
-    await prisma.developmentActivity.deleteMany({ where: { resumeId } });
-    await prisma.developmentActivity.createMany({
-      data: activities.map((act: any) => ({
-        ...act,
-        resumeId,
-      })),
+    // 2. projects 완전 교체
+    if (projects) {
+      await tx.project.deleteMany({ where: { resumeId } });
+      if (projects.length > 0) {
+        await tx.project.createMany({
+          data: projects.map((proj: any) => ({ ...proj, resumeId })),
+        });
+      }
+    }
+
+    // 3. activities 완전 교체
+    if (activities) {
+      await tx.developmentActivity.deleteMany({ where: { resumeId } });
+      if (activities.length > 0) {
+        await tx.developmentActivity.createMany({
+          data: activities.map((act: any) => ({ ...act, resumeId })),
+        });
+      }
+    }
+
+    // 4. certificates 완전 교체
+    if (certificates) {
+      await tx.certificate.deleteMany({ where: { resumeId } });
+      if (certificates.length > 0) {
+        await tx.certificate.createMany({
+          data: certificates.map((cert: any) => ({
+            name: cert.name,
+            date: cert.date ? new Date(cert.date) : undefined,
+            grade: cert.grade,
+            issuer: cert.issuer,
+            resumeId,
+          })),
+        });
+      }
+    }
+
+    // 5. 트랜잭션 완료 후 최종 resume 데이터 조회 및 반환
+    return tx.resume.findUnique({
+      where: { id: resumeId },
+      include: {
+        categories: true,
+        skills: true,
+        positions: true,
+        projects: true,
+        activities: true,
+        certificates: true,
+      },
     });
-  }
-
-  if (certificates) {
-    await prisma.certificate.deleteMany({ where: { resumeId } });
-    await prisma.certificate.createMany({
-      data: certificates.map((cert: any) => ({
-        name: cert.name,
-        date: new Date(cert.date),
-        grade: cert.grade,
-        issuer: cert.issuer,
-        resumeId,
-      })),
-    });
-  }
-
-  return prisma.resume.findUnique({
-    where: { id: resumeId },
-    include: {
-      categories: true,
-      skills: true,
-      positions: true,
-      projects: true,
-      activities: true,
-      certificates: true,
-    },
   });
 },
+
 
   deleteResume: (resumeId: string) => {
     return prisma.resume.delete({ where: { id: resumeId } });

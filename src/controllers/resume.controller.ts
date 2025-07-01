@@ -43,9 +43,11 @@ export const resumeController = {
       res.json(updated);
     } catch (error: any) {
       console.error("이력서 수정 실패:", error);
-      const message = error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")
-        ? error.message
-        : "이력서 수정 중 오류 발생";
+      const message =
+        error.message === "프로필이 존재하지 않습니다." ||
+        error.message.includes("권한")
+          ? error.message
+          : "이력서 수정 중 오류 발생";
       res.status(403).json({ message });
     }
   },
@@ -58,9 +60,11 @@ export const resumeController = {
       res.status(204).send();
     } catch (error: any) {
       console.error("이력서 삭제 실패:", error);
-      const message = error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")
-        ? error.message
-        : "이력서 삭제 중 오류 발생";
+      const message =
+        error.message === "프로필이 존재하지 않습니다." ||
+        error.message.includes("권한")
+          ? error.message
+          : "이력서 삭제 중 오류 발생";
       res.status(403).json({ message });
     }
   },

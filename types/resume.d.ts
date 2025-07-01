@@ -1,6 +1,4 @@
 export interface ResumeRequestBody {
-  profileId: string;        // UserProfile의 ID (필수)
-
   title: string;            // 이력서 제목
   summary?: string;         // UserProfile에서 불러오되 편집 가능
   experienceNote?: string;  // 개발 관련 자유기술
