@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
-import userRouter from './routers/auth.router';
-import resumeRoutes from "./routers/resume.router";
+import authRouter from './routers/auth.router';
+import resumeRouter from './routers/resume.router';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
@@ -15,8 +15,8 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-app.use('/api/users', userRouter);
-app.use("/api/resumes", resumeRoutes);
+app.use('/api/auth', authRouter);
+app.use('/api/resumes', resumeRouter);
 
 app.set("port", process.env.PORT || 3000);
 

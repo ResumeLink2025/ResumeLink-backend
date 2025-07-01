@@ -1,7 +1,11 @@
 import axios from 'axios';
+import qs from 'qs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 interface GoogleUserInfo {
-  "sub": string,
+  "id": string;
   "name": string,
   "given_name": string,
   "family_name": string,
@@ -11,17 +15,6 @@ interface GoogleUserInfo {
   "locale": string
 }
 
-export async function getGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {
-  const response = await axios.get('https://openidconnect.googleapis.com/v1/userinfo', {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  return response.data; // 여기에 사용자 정보가 담겨있음
-}
-
-const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-
 interface TokenResponse {
   access_token: string;
   expires_in: number;
@@ -30,15 +23,61 @@ interface TokenResponse {
   id_token?: string;
 }
 
-export async function verifyGoogleRefreshToken(refreshToken: string, clientId: string, clientSecret: string): Promise<boolean> {
+// auth code -> token
+export async function getGoogleTokens(code: string) {
+  const payload = {
+    code,
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+    grant_type: 'authorization_code',
+  };
+
+  const response = await axios.post(
+    'https://oauth2.googleapis.com/token',
+    qs.stringify(payload),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+
+  return response.data;
+}
+
+// 액세스 토큰 -> 사용자 정보 추출
+export async function getGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {
+  const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  return response.data;
+}
+
+// refresh access -> access token
+export async function refreshGoogleAccessToken(refreshToken: string) {
+  const payload = {
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  };
+
+  const response = await axios.post(
+    'https://oauth2.googleapis.com/token',
+    qs.stringify(payload),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+  );
+
+  return response.data;
+}
+
+export async function verifyGoogleRefreshToken(refreshToken: string): Promise<boolean> {
   try {
     const params = new URLSearchParams();
-    params.append('client_id', clientId);
-    params.append('client_secret', clientSecret);
+    params.append('client_id', process.env.GOOGLE_CLIENT_ID!);
+    params.append('client_secret', process.env.GOOGLE_CLIENT_SECRET!);
     params.append('refresh_token', refreshToken);
     params.append('grant_type', 'refresh_token');
 
-    const response = await axios.post<TokenResponse>(GOOGLE_TOKEN_ENDPOINT, params.toString(), {
+    const response = await axios.post<TokenResponse>('https://oauth2.googleapis.com/token', params.toString(), {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
