@@ -15,7 +15,7 @@ router.post('/', validateDto(CreateCoffeeChatDto), async (req: Request, res: Res
 });
 
 // 커피챗 요청 수락/거절
-router.post('/:id/status', validateDto(UpdateCoffeeChatStatusDto), async (req: Request, res: Response) => {
+router.patch('/:id/status', validateDto(UpdateCoffeeChatStatusDto), async (req: Request, res: Response) => {
   await coffeechatController.updateStatus(req, res);
 });
 
