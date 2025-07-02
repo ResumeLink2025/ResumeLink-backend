@@ -87,7 +87,7 @@ export class ChatRoomService implements IChatRoomService {
     return this.transformToChatRoomResponse(chatRoom);
   }
 
-  // 채팅방 나가기
+  // 채팅방 나가기 (개선된 로직)
   async leaveChatRoom(chatRoomId: string, userId: string): Promise<void> {
     // 참여자 권한 확인
     const isParticipant = await this.chatRepository.isChatRoomParticipant(chatRoomId, userId);
@@ -95,7 +95,13 @@ export class ChatRoomService implements IChatRoomService {
       throw ChatErrors.ACCESS_DENIED();
     }
 
-    await this.chatRepository.leaveChatRoom(chatRoomId, userId);
+    // 채팅방 나가기 실행
+    const result = await this.chatRepository.leaveChatRoom(chatRoomId, userId);
+    
+    // 로그 기록 (선택사항)
+    if (result.shouldArchiveRoom) {
+      console.log(`채팅방 ${chatRoomId}가 아카이브되었습니다. 모든 참여자가 나갔습니다.`);
+    }
   }
 
   // 데이터 변환 헬퍼 메서드
