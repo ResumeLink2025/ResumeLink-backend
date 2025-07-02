@@ -109,6 +109,11 @@ model CoffeeChat {
   receiver  UserAuth @relation("ReceivedChats", fields: [receiverId], references: [id], onDelete: Restrict)
 
   chatRoom ChatRoom?
+
+  @@index([requesterId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([requesterId, receiverId])
 }
 
 model ChatRoom {
@@ -119,29 +124,56 @@ model ChatRoom {
   coffeeChat   CoffeeChat?       @relation(fields: [coffeeChatId], references: [id])
   participants ChatParticipant[]
   messages     Message[]
+
+  @@index([createdAt])
 }
 
 model ChatParticipant {
-  id                String  @id @default(uuid()) @db.Uuid
-  chatRoomId        String  @db.Uuid
-  userId            String  @db.Uuid
-  lastReadMessageId String?
+  id                String    @id @default(uuid()) @db.Uuid
+  chatRoomId        String    @db.Uuid
+  userId            String    @db.Uuid
+  lastReadMessageId String?   @db.Uuid
+  joinedAt          DateTime  @default(now())
+  leftAt            DateTime?
 
-  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  user     UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatRoom        ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user            UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message? @relation("LastReadMessage", fields: [lastReadMessageId], references: [id])
+
+  @@unique([chatRoomId, userId])
+  @@index([userId])
+  @@index([chatRoomId])
+  @@index([userId, leftAt])
 }
 
 model Message {
-  id         String   @id @default(uuid()) @db.Uuid
-  chatRoomId String   @db.Uuid
-  senderId   String   @db.Uuid
-  text       String?
-  fileUrl    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  isEdited   Boolean  @default(false)
-  isDeleted  Boolean  @default(false)
+  id          String      @id @default(uuid()) @db.Uuid
+  chatRoomId  String      @db.Uuid
+  senderId    String      @db.Uuid
+  text        String?
+  fileUrl     String?
+  fileName    String?
+  fileSize    Int?
+  messageType MessageType @default(TEXT)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isEdited    Boolean     @default(false)
+  isDeleted   Boolean     @default(false)
 
-  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  sender   UserAuth @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  chatRoom                ChatRoom          @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender                  UserAuth          @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  lastReadByParticipants  ChatParticipant[] @relation("LastReadMessage")
+
+  @@index([chatRoomId, createdAt])
+  @@index([chatRoomId, isDeleted, createdAt])
+  @@index([senderId])
+  @@index([isDeleted])
+  @@index([chatRoomId, isDeleted])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
 }
