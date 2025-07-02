@@ -117,15 +117,17 @@ model CoffeeChat {
 }
 
 model ChatRoom {
-  id           String   @id @default(uuid()) @db.Uuid
-  coffeeChatId String   @unique @db.Uuid
-  createdAt    DateTime @default(now())
+  id           String          @id @default(uuid()) @db.Uuid
+  coffeeChatId String          @unique @db.Uuid
+  status       ChatRoomStatus  @default(active)
+  createdAt    DateTime        @default(now())
 
   coffeeChat   CoffeeChat @relation(fields: [coffeeChatId], references: [id])
   participants ChatParticipant[]
   messages     Message[]
 
   @@index([createdAt])
+  @@index([status])
 }
 
 model ChatParticipant {
@@ -135,6 +137,7 @@ model ChatParticipant {
   lastReadMessageId String?   @db.Uuid
   joinedAt          DateTime  @default(now())
   leftAt            DateTime?
+  isVisible         Boolean   @default(true)
 
   chatRoom        ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
   user            UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -144,6 +147,7 @@ model ChatParticipant {
   @@index([userId])
   @@index([chatRoomId])
   @@index([userId, leftAt])
+  @@index([userId, isVisible])
 }
 
 model Message {
@@ -169,6 +173,11 @@ model Message {
   @@index([senderId])
   @@index([isDeleted])
   @@index([chatRoomId, isDeleted])
+}
+
+enum ChatRoomStatus {
+  active
+  archived
 }
 
 enum MessageType {
