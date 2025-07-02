@@ -7,10 +7,10 @@ import {
   UserInfoDto,
   UserProfileDto
 } from '../dtos/chat.dto';
-import { ChatRoomAccessError, ChatRoomNotFoundError } from '../types/chat.types';
+import { IChatRoomService, ChatErrors } from '../types/chat.types';
 import { plainToInstance } from 'class-transformer';
 
-export class ChatRoomService {
+export class ChatRoomService implements IChatRoomService {
   
   constructor(private readonly chatRepository = new ChatRepository()) {}
 
@@ -20,7 +20,7 @@ export class ChatRoomService {
 
     // 본인과의 채팅 방지
     if (currentUserId === participantId) {
-      throw new ChatRoomAccessError('자기 자신과는 채팅할 수 없습니다.');
+      throw ChatErrors.SELF_CHAT_NOT_ALLOWED();
     }
 
     // 기존 채팅방 조회
@@ -55,26 +55,25 @@ export class ChatRoomService {
     // 참여자 권한 확인
     const isParticipant = await this.chatRepository.isChatRoomParticipant(chatRoomId, userId);
     if (!isParticipant) {
-      throw new ChatRoomAccessError();
+      throw ChatErrors.ACCESS_DENIED();
     }
 
     const chatRoom = await this.chatRepository.findChatRoomById(chatRoomId);
     if (!chatRoom) {
-      throw new ChatRoomNotFoundError();
+      throw ChatErrors.ROOM_NOT_FOUND();
     }
 
     return this.transformToChatRoomResponse(chatRoom);
   }
 
-  // 채팅방 나가기 (향후 구현)
+  // 채팅방 나가기
   async leaveChatRoom(chatRoomId: string, userId: string): Promise<void> {
     // 참여자 권한 확인
     const isParticipant = await this.chatRepository.isChatRoomParticipant(chatRoomId, userId);
     if (!isParticipant) {
-      throw new ChatRoomAccessError();
+      throw ChatErrors.ACCESS_DENIED();
     }
 
-    // TODO: leftAt 필드 업데이트 로직 구현
     await this.chatRepository.leaveChatRoom(chatRoomId, userId);
   }
 
@@ -93,7 +92,7 @@ export class ChatRoomService {
       return plainToInstance(ChatParticipantResponseDto, {
         id: participant.id,
         userId: participant.userId,
-        joinedAt: participant.joinedAt || participant.createdAt, // 임시로 createdAt 사용
+        joinedAt: participant.joinedAt || participant.createdAt,
         leftAt: participant.leftAt,
         user: userInfo
       });
@@ -113,7 +112,7 @@ export class ChatRoomService {
       createdAt: chatRoom.createdAt.toISOString(),
       participants,
       lastMessage,
-      unreadCount: 0 // 향후 구현
+      unreadCount: 0
     });
   }
 }

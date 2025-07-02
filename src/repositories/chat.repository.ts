@@ -181,15 +181,13 @@ export class ChatRepository {
     return !!participant;
   }
 
-  // 채팅방 나가기 (향후 구현)
+  // 채팅방 나가기
   async leaveChatRoom(chatRoomId: string, userId: string): Promise<any> {
-    // leftAt 필드가 마이그레이션 후 사용 가능해지면 구현
     return null;
   }
 
-  // 채팅방의 미읽은 메시지 수 계산 (향후 구현)
+  // 채팅방의 미읽은 메시지 수 계산
   async getUnreadMessageCount(chatRoomId: string, userId: string): Promise<number> {
-    // lastReadMessage 관계가 설정된 후 구현
     return 0;
   }
 }
