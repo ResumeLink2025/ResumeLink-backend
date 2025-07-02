@@ -29,33 +29,21 @@ export type ChatRoomListItem = ChatRoom & {
 };
 
 export class ChatRepository {
-  // 두 사용자 간의 기존 채팅방 조회
-  async findChatRoomByParticipants(userId1: string, userId2: string): Promise<ChatRoom | null> {
-    return prisma.chatRoom.findFirst({
-      where: {
-        participants: {
-          some: {
-            userId: userId1
-          }
-        },
-        AND: {
-          participants: {
-            some: {
-              userId: userId2
-            }
-          }
-        }
-      },
+  // 커피챗 ID로 기존 채팅방 조회
+  async findChatRoomByCoffeeChatId(coffeeChatId: string): Promise<ChatRoom | null> {
+    return prisma.chatRoom.findUnique({
+      where: { coffeeChatId },
       include: {
         participants: true
       }
     });
   }
 
-  // 채팅방 생성
-  async createChatRoom(participant1Id: string, participant2Id: string): Promise<any> {
+  // 커피챗 수락 시 채팅방 생성
+  async createChatRoomFromCoffeeChat(coffeeChatId: string, participant1Id: string, participant2Id: string): Promise<any> {
     return prisma.chatRoom.create({
       data: {
+        coffeeChatId,
         participants: {
           create: [
             {

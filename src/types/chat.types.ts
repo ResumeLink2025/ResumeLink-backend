@@ -16,4 +16,5 @@ export const ChatErrors = {
   INVALID_PARTICIPANT: (message = '유효하지 않은 참여자입니다.') => new ServiceError(400, message),
   SELF_CHAT_NOT_ALLOWED: (message = '자기 자신과는 채팅할 수 없습니다.') => new ServiceError(400, message),
   PARTICIPANT_NOT_FOUND: (message = '참여자를 찾을 수 없습니다.') => new ServiceError(404, message),
+  NO_ACCEPTED_COFFEECHAT: (message = '수락된 커피챗이 없습니다.') => new ServiceError(403, message),
 } as const;

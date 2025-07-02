@@ -118,10 +118,10 @@ model CoffeeChat {
 
 model ChatRoom {
   id           String   @id @default(uuid()) @db.Uuid
-  coffeeChatId String?  @unique @db.Uuid
+  coffeeChatId String   @unique @db.Uuid
   createdAt    DateTime @default(now())
 
-  coffeeChat   CoffeeChat?       @relation(fields: [coffeeChatId], references: [id])
+  coffeeChat   CoffeeChat @relation(fields: [coffeeChatId], references: [id])
   participants ChatParticipant[]
   messages     Message[]
 
