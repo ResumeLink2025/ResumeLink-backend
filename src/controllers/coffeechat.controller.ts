@@ -52,7 +52,7 @@ const coffeechatController = {
         return res.status(401).json({ message: '로그인이 필요합니다.' });
       }
 
-      const list = await coffeechatService.getCoffeeChats(userId, String(type));
+      const list = await coffeechatService.getCoffeeChats(userId, type as string);
       res.json({ message: '목록 조회가 완료되었습니다.', data: list });
     } catch (error: any) {
       res.status(error.status || 400).json({ message: error.message || '목록 조회 실패' });

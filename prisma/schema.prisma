@@ -105,8 +105,8 @@ model CoffeeChat {
   createdAt   DateTime         @default(now())
   respondedAt DateTime?
 
-  requester UserAuth @relation("RequestedChats", fields: [requesterId], references: [id])
-  receiver  UserAuth @relation("ReceivedChats", fields: [receiverId], references: [id])
+  requester UserAuth @relation("RequestedChats", fields: [requesterId], references: [id], onDelete: Restrict)
+  receiver  UserAuth @relation("ReceivedChats", fields: [receiverId], references: [id], onDelete: Restrict)
 
   chatRoom ChatRoom?
 }
@@ -127,8 +127,8 @@ model ChatParticipant {
   userId            String  @db.Uuid
   lastReadMessageId String?
 
-  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
-  user     UserAuth @relation(fields: [userId], references: [id])
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user     UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Message {
@@ -142,6 +142,6 @@ model Message {
   isEdited   Boolean  @default(false)
   isDeleted  Boolean  @default(false)
 
-  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
-  sender   UserAuth @relation(fields: [senderId], references: [id])
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender   UserAuth @relation(fields: [senderId], references: [id], onDelete: Restrict)
 }
