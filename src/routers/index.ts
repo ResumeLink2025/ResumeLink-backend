@@ -8,6 +8,6 @@ const router = Router();
 
 router.use('/users', authRouter);
 router.use('/coffee-chats', coffeechatRouter);
-router.use('/chat-rooms', chatRouter);
+router.use('/chats', chatRouter);
 
 export default router;
