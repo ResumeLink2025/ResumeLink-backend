@@ -1,15 +1,37 @@
 import { Server, Socket } from 'socket.io';
 import { AuthenticatedSocket, socketAuthMiddleware } from '../middlewares/middleware.socket';
+import { 
+  JoinRoomRequest, 
+  LeaveRoomRequest, 
+  SocketResponse,
+  RoomJoinedResponse,
+  RoomLeftResponse,
+  RoomJoinedNotification,
+  RoomLeftNotification,
+  UserJoinedRoomNotification,
+  UserLeftRoomNotification
+} from '../types/socket.types';
+import { ChatRoomService } from '../services/chat.service';
+import { ServiceError } from '../utils/ServiceError';
 
 /**
  * Socket.IO 이벤트 핸들러 설정
  * - 기본 연결/해제 이벤트
- * - 에러 처리
- * - 로그 출력
+ * - 채팅방 입장/나가기 이벤트
+ * - 에러 처리 및 로그 출력
  */
 
 // 연결된 사용자 관리 (메모리 기반, 추후 Redis로 확장 가능)
 const connectedUsers = new Map<number, AuthenticatedSocket>();
+
+// 채팅방별 사용자 관리 (roomId -> Set<userId>)
+const roomUsers = new Map<string, Set<number>>();
+
+// 사용자별 참여 중인 채팅방 관리 (userId -> Set<roomId>)
+const userRooms = new Map<number, Set<string>>();
+
+// 서비스 인스턴스
+const chatService = new ChatRoomService();
 
 /**
  * Socket.IO 서버 설정 및 이벤트 핸들러 등록
@@ -26,6 +48,14 @@ export const setupSocketHandlers = (io: Server) => {
     // 연결된 사용자 목록에 추가
     if (socket.userId) {
       connectedUsers.set(socket.userId, socket);
+      
+      // 사용자가 이미 참여 중인 채팅방들에 다시 입장 처리
+      const userJoinedRooms = userRooms.get(socket.userId);
+      if (userJoinedRooms) {
+        userJoinedRooms.forEach(roomId => {
+          socket.join(roomId);
+        });
+      }
     }
 
     // 연결 확인 이벤트 (클라이언트에서 연결 상태 확인용)
@@ -36,13 +66,59 @@ export const setupSocketHandlers = (io: Server) => {
       timestamp: new Date().toISOString(),
     });
 
+    // === 채팅방 입장 이벤트 ===
+    socket.on('room:join', async (data: JoinRoomRequest, callback) => {
+      try {
+        const response = await handleRoomJoin(socket, data);
+        callback(response);
+      } catch (error) {
+        const errorResponse: SocketResponse<null> = {
+          success: false,
+          error: {
+            message: error instanceof ServiceError ? error.message : '채팅방 입장 중 오류가 발생했습니다.',
+            code: error instanceof ServiceError ? error.status.toString() : 'INTERNAL_ERROR'
+          },
+          timestamp: new Date().toISOString()
+        };
+        callback(errorResponse);
+        console.error(`[Socket] 채팅방 입장 실패 (${socket.user?.nickname}):`, error);
+      }
+    });
+
+    // === 채팅방 나가기 이벤트 ===
+    socket.on('room:leave', async (data: LeaveRoomRequest, callback) => {
+      try {
+        const response = await handleRoomLeave(socket, data);
+        callback(response);
+      } catch (error) {
+        const errorResponse: SocketResponse<null> = {
+          success: false,
+          error: {
+            message: error instanceof ServiceError ? error.message : '채팅방 나가기 중 오류가 발생했습니다.',
+            code: error instanceof ServiceError ? error.status.toString() : 'INTERNAL_ERROR'
+          },
+          timestamp: new Date().toISOString()
+        };
+        callback(errorResponse);
+        console.error(`[Socket] 채팅방 나가기 실패 (${socket.user?.nickname}):`, error);
+      }
+    });
+
     // 연결 해제 이벤트
     socket.on('disconnect', (reason) => {
       console.log(`[Socket] 연결 해제: ${socket.user?.nickname} (${socket.id}) - ${reason}`);
       
-      // 연결된 사용자 목록에서 제거
       if (socket.userId) {
+        // 연결된 사용자 목록에서 제거
         connectedUsers.delete(socket.userId);
+        
+        // 참여 중인 모든 채팅방에서 나가기 처리
+        const userJoinedRooms = userRooms.get(socket.userId);
+        if (userJoinedRooms) {
+          userJoinedRooms.forEach(roomId => {
+            handleUserDisconnectFromRoom(socket, roomId);
+          });
+        }
       }
     });
 
@@ -64,59 +140,226 @@ export const setupSocketHandlers = (io: Server) => {
 };
 
 /**
- * 특정 사용자가 온라인인지 확인
- * @param userId 사용자 ID
- * @returns 온라인 여부
+ * 채팅방 입장 처리
  */
-export const isUserOnline = (userId: number): boolean => {
-  return connectedUsers.has(userId);
-};
+async function handleRoomJoin(socket: AuthenticatedSocket, data: JoinRoomRequest): Promise<SocketResponse<RoomJoinedResponse>> {
+  const { chatRoomId } = data;
+  const userId = socket.userId!;
+
+  // 채팅방 참여 권한 확인
+  const chatRoom = await chatService.getChatRoomById(userId.toString(), chatRoomId);
+  
+  // Socket.IO 방에 입장
+  socket.join(chatRoomId);
+  
+  // 메모리에 사용자-방 매핑 추가
+  addUserToRoom(userId, chatRoomId);
+  
+  // 방의 다른 참여자들에게 입장 알림
+  const joinNotification: UserJoinedRoomNotification = {
+    chatRoomId,
+    user: {
+      userId,
+      nickname: socket.user!.nickname
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  socket.to(chatRoomId).emit('room:user_joined', joinNotification);
+  
+  // 현재 참여자 목록 구성
+  const participants = chatRoom.participants.map(p => ({
+    userId: parseInt(p.userId),
+    nickname: p.user?.profile?.nickname || 'Unknown',
+    isOnline: isUserOnline(parseInt(p.userId))
+  }));
+  
+  // 성공 응답
+  const response: SocketResponse<RoomJoinedResponse> = {
+    success: true,
+    data: {
+      chatRoomId,
+      participants
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  // 본인에게 입장 확인 알림
+  const selfNotification: RoomJoinedNotification = {
+    chatRoomId,
+    participants,
+    timestamp: new Date().toISOString()
+  };
+  
+  socket.emit('room:joined', selfNotification);
+  
+  console.log(`[Socket] 채팅방 입장: ${socket.user?.nickname} -> ${chatRoomId}`);
+  
+  return response;
+}
 
 /**
- * 특정 사용자에게 이벤트 전송
- * @param userId 사용자 ID
- * @param event 이벤트 이름
- * @param data 전송할 데이터
- * @returns 전송 성공 여부
+ * 채팅방 나가기 처리
  */
-export const emitToUser = (userId: number, event: string, data: any): boolean => {
-  const socket = connectedUsers.get(userId);
-  if (socket) {
-    socket.emit(event, data);
-    return true;
+async function handleRoomLeave(socket: AuthenticatedSocket, data: LeaveRoomRequest): Promise<SocketResponse<RoomLeftResponse>> {
+  const { chatRoomId } = data;
+  const userId = socket.userId!;
+  
+  // 채팅방 참여 여부 확인
+  if (!isUserInRoom(userId, chatRoomId)) {
+    throw new ServiceError(400, '참여하지 않은 채팅방입니다.');
   }
-  return false;
-};
+  
+  // Socket.IO 방에서 나가기
+  socket.leave(chatRoomId);
+  
+  // 메모리에서 사용자-방 매핑 제거
+  removeUserFromRoom(userId, chatRoomId);
+  
+  // 방의 다른 참여자들에게 나가기 알림
+  const leaveNotification: UserLeftRoomNotification = {
+    chatRoomId,
+    user: {
+      userId,
+      nickname: socket.user!.nickname
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  socket.to(chatRoomId).emit('room:user_left', leaveNotification);
+  
+  // 성공 응답
+  const response: SocketResponse<RoomLeftResponse> = {
+    success: true,
+    data: {
+      chatRoomId,
+      message: '채팅방에서 나갔습니다.'
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  // 본인에게 나가기 확인 알림
+  const selfNotification: RoomLeftNotification = {
+    chatRoomId,
+    message: '채팅방에서 나갔습니다.',
+    timestamp: new Date().toISOString()
+  };
+  
+  socket.emit('room:left', selfNotification);
+  
+  console.log(`[Socket] 채팅방 나가기: ${socket.user?.nickname} <- ${chatRoomId}`);
+  
+  return response;
+}
 
 /**
- * 여러 사용자에게 이벤트 전송
- * @param userIds 사용자 ID 배열
- * @param event 이벤트 이름
- * @param data 전송할 데이터
- * @returns 전송 성공한 사용자 수
+ * 연결 해제 시 방에서 나가기 처리
  */
-export const emitToUsers = (userIds: number[], event: string, data: any): number => {
-  let successCount = 0;
-  userIds.forEach(userId => {
-    if (emitToUser(userId, event, data)) {
-      successCount++;
+function handleUserDisconnectFromRoom(socket: AuthenticatedSocket, roomId: string): void {
+  const userId = socket.userId!;
+  
+  // Socket.IO 방에서 나가기
+  socket.leave(roomId);
+  
+  // 메모리에서 사용자-방 매핑 제거
+  removeUserFromRoom(userId, roomId);
+  
+  // 다른 참여자들에게 나가기 알림
+  const leaveNotification: UserLeftRoomNotification = {
+    chatRoomId: roomId,
+    user: {
+      userId,
+      nickname: socket.user!.nickname
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  socket.to(roomId).emit('room:user_left', leaveNotification);
+  
+  console.log(`[Socket] 연결 해제로 인한 채팅방 나가기: ${socket.user?.nickname} <- ${roomId}`);
+}
+
+/**
+ * 사용자를 채팅방에 추가
+ */
+function addUserToRoom(userId: number, roomId: string): void {
+  // 방별 사용자 목록에 추가
+  if (!roomUsers.has(roomId)) {
+    roomUsers.set(roomId, new Set());
+  }
+  roomUsers.get(roomId)!.add(userId);
+  
+  // 사용자별 방 목록에 추가
+  if (!userRooms.has(userId)) {
+    userRooms.set(userId, new Set());
+  }
+  userRooms.get(userId)!.add(roomId);
+}
+
+/**
+ * 사용자를 채팅방에서 제거
+ */
+function removeUserFromRoom(userId: number, roomId: string): void {
+  // 방별 사용자 목록에서 제거
+  const roomUserSet = roomUsers.get(roomId);
+  if (roomUserSet) {
+    roomUserSet.delete(userId);
+    if (roomUserSet.size === 0) {
+      roomUsers.delete(roomId);
     }
-  });
-  return successCount;
+  }
+  
+  // 사용자별 방 목록에서 제거
+  const userRoomSet = userRooms.get(userId);
+  if (userRoomSet) {
+    userRoomSet.delete(roomId);
+    if (userRoomSet.size === 0) {
+      userRooms.delete(userId);
+    }
+  }
+}
+
+/**
+ * 사용자가 특정 채팅방에 참여 중인지 확인
+ */
+function isUserInRoom(userId: number, roomId: string): boolean {
+  const userRoomSet = userRooms.get(userId);
+  return userRoomSet ? userRoomSet.has(roomId) : false;
+}
+
+/**
+ * 채팅방의 참여자 목록 조회
+ */
+export const getRoomUsers = (roomId: string): number[] => {
+  const roomUserSet = roomUsers.get(roomId);
+  return roomUserSet ? Array.from(roomUserSet) : [];
 };
 
 /**
- * 현재 온라인 사용자 수 조회
- * @returns 온라인 사용자 수
+ * 사용자가 참여 중인 채팅방 목록 조회
  */
-export const getOnlineUserCount = (): number => {
-  return connectedUsers.size;
+export const getUserRooms = (userId: number): string[] => {
+  const userRoomSet = userRooms.get(userId);
+  return userRoomSet ? Array.from(userRoomSet) : [];
 };
 
 /**
- * 현재 온라인 사용자 ID 목록 조회
- * @returns 온라인 사용자 ID 배열
+ * 사용자의 온라인 상태 확인
  */
-export const getOnlineUserIds = (): number[] => {
+function isUserOnline(userId: number): boolean {
+  return connectedUsers.has(userId);
+}
+
+/**
+ * 온라인 사용자 목록 조회
+ */
+export const getOnlineUsers = (): number[] => {
   return Array.from(connectedUsers.keys());
+};
+
+/**
+ * 특정 사용자의 소켓 인스턴스 조회
+ */
+export const getUserSocket = (userId: number): AuthenticatedSocket | undefined => {
+  return connectedUsers.get(userId);
 };
