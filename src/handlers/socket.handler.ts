@@ -9,9 +9,15 @@ import {
   RoomJoinedNotification,
   RoomLeftNotification,
   UserJoinedRoomNotification,
-  UserLeftRoomNotification
+  UserLeftRoomNotification,
+  SendMessageRequest,
+  MessageSentResponse,
+  NewMessageNotification,
+  MessageSendFailedNotification
 } from '../types/socket.types';
 import { ChatRoomService } from '../services/chat.service';
+import { MessageService } from '../services/message.service';
+import { MessageType } from '../dtos/message.dto';
 import { ServiceError } from '../utils/ServiceError';
 
 /**
@@ -32,6 +38,7 @@ const userRooms = new Map<number, Set<string>>();
 
 // 서비스 인스턴스
 const chatService = new ChatRoomService();
+const messageService = new MessageService();
 
 /**
  * Socket.IO 서버 설정 및 이벤트 핸들러 등록
@@ -101,6 +108,37 @@ export const setupSocketHandlers = (io: Server) => {
         };
         callback(errorResponse);
         console.error(`[Socket] 채팅방 나가기 실패 (${socket.user?.nickname}):`, error);
+      }
+    });
+
+    // === 메시지 송수신 이벤트 ===
+    socket.on('message:send', async (data: SendMessageRequest, callback) => {
+      try {
+        const response = await handleMessageSend(socket, data);
+        callback?.(response);
+      } catch (error) {
+        const errorResponse: SocketResponse<null> = {
+          success: false,
+          error: {
+            message: error instanceof ServiceError ? error.message : '메시지 전송 중 오류가 발생했습니다.',
+            code: error instanceof ServiceError ? error.status.toString() : 'INTERNAL_ERROR'
+          },
+          timestamp: new Date().toISOString()
+        };
+        callback?.(errorResponse);
+        
+        // 메시지 전송 실패 알림
+        const failureNotification: MessageSendFailedNotification = {
+          chatRoomId: data.chatRoomId,
+          error: {
+            message: error instanceof ServiceError ? error.message : '메시지 전송에 실패했습니다.',
+            code: error instanceof ServiceError ? error.status.toString() : 'INTERNAL_ERROR'
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+        socket.emit('message:send_failed', failureNotification);
+        console.error(`[Socket] 메시지 전송 실패 (${socket.user?.nickname}):`, error);
       }
     });
 
@@ -363,3 +401,66 @@ export const getOnlineUsers = (): number[] => {
 export const getUserSocket = (userId: number): AuthenticatedSocket | undefined => {
   return connectedUsers.get(userId);
 };
+
+/**
+ * 메시지 전송 처리
+ */
+async function handleMessageSend(socket: AuthenticatedSocket, data: SendMessageRequest): Promise<SocketResponse<MessageSentResponse>> {
+  const { chatRoomId, content, messageType = 'TEXT' } = data;
+  const userId = socket.userId!;
+
+  // 1. 입력 데이터 검증
+  if (!content?.trim()) {
+    throw new ServiceError(400, '메시지 내용은 필수입니다.');
+  }
+
+  // 2. 채팅방 참여 권한 확인
+  const chatRoom = await chatService.getChatRoomById(chatRoomId, userId.toString());
+  
+  // 3. 메시지 저장
+  const savedMessage = await messageService.sendMessage(chatRoomId, userId.toString(), {
+    text: content.trim(),
+    messageType: messageType as any // MessageType enum과 호환성을 위해 any 사용
+  });
+
+  // 4. 성공 응답 데이터 구성
+  const messageResponse: MessageSentResponse = {
+    messageId: savedMessage.id,
+    chatRoomId: savedMessage.chatRoomId,
+    content: savedMessage.text || '',
+    messageType: savedMessage.messageType as 'TEXT' | 'IMAGE' | 'FILE',
+    createdAt: savedMessage.createdAt,
+    sender: {
+      userId,
+      nickname: socket.user!.nickname
+    }
+  };
+
+  // 5. 성공 응답
+  const response: SocketResponse<MessageSentResponse> = {
+    success: true,
+    data: messageResponse,
+    timestamp: new Date().toISOString()
+  };
+
+  // 6. 채팅방의 다른 참여자들에게 새 메시지 브로드캐스트
+  const newMessageNotification: NewMessageNotification = {
+    messageId: savedMessage.id,
+    chatRoomId: savedMessage.chatRoomId,
+    content: savedMessage.text || '',
+    messageType: savedMessage.messageType as 'TEXT' | 'IMAGE' | 'FILE',
+    createdAt: savedMessage.createdAt,
+    sender: {
+      userId,
+      nickname: socket.user!.nickname
+    },
+    unreadCount: 1 // 기본값, 추후 실제 계산 로직으로 변경
+  };
+
+  // 전송자를 제외한 채팅방의 다른 참여자들에게만 알림
+  socket.to(chatRoomId).emit('message:new', newMessageNotification);
+
+  console.log(`[Socket] 메시지 전송: ${socket.user?.nickname} -> ${chatRoomId}, 내용: ${content.substring(0, 50)}...`);
+
+  return response;
+}

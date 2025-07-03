@@ -28,6 +28,10 @@ export interface ServerToClientEvents {
   'room:user_joined': (data: UserJoinedRoomNotification) => void;
   'room:user_left': (data: UserLeftRoomNotification) => void;
 
+  // 메시지 관련 이벤트
+  'message:new': (data: NewMessageNotification) => void;
+  'message:send_failed': (data: MessageSendFailedNotification) => void;
+
   // 에러 이벤트
   error: (data: { message: string; code?: string }) => void;
 }
