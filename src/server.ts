@@ -3,6 +3,7 @@ dotenv.config();
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import app from './app';
+import { setupSocketHandlers } from './handlers/socket.handler';
 
 const PORT = process.env.PORT || 8080; // 프론트엔드 설정에 맞춤 (.env.example의 NEXT_PUBLIC_API_URL 설정 참고)
 
@@ -20,12 +21,13 @@ const server = createServer(app);
 // Socket.IO 서버 설정 (실시간 통신용)
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:3000', // Next.js 기본 포트
+    origin: ['http://localhost:3000', 'http://localhost:5173'], // Next.js와 Vite 기본 포트
     credentials: true,
   },
 });
 
 // WebSocket 이벤트 핸들러 연결
+setupSocketHandlers(io);
 
 // Socket.IO export (실시간 브로드캐스트용)
 export { io };
