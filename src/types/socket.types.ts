@@ -32,6 +32,10 @@ export interface ServerToClientEvents {
   'message:new': (data: NewMessageNotification) => void;
   'message:send_failed': (data: MessageSendFailedNotification) => void;
 
+  // 읽음 상태 관련 이벤트
+  'message:read': (data: MessageReadNotification) => void;
+  'message:read_status_updated': (data: ReadStatusUpdatedNotification) => void;
+
   // 에러 이벤트
   error: (data: { message: string; code?: string }) => void;
 }
@@ -48,6 +52,9 @@ export interface ClientToServerEvents {
   // 메시지 송수신
   'message:send': (data: SendMessageRequest, callback?: (response: MessageSentResponse | SocketResponse) => void) => void;
   'message:receive': (callback: (data: MessageReceivedResponse) => void) => void;
+
+  // 읽음 상태 업데이트
+  'message:mark_read': (data: MarkAsReadRequest, callback?: (response: SocketResponse) => void) => void;
 }
 
 // 소켓 간 데이터 (현재는 사용하지 않음)
@@ -230,4 +237,41 @@ export interface MessageSendFailedNotification {
     code: string;
   };
   timestamp: string;
+}
+
+// === 읽음 상태 관련 타입 ===
+
+/**
+ * 읽음 상태 업데이트 요청
+ */
+export interface MarkAsReadRequest {
+  chatRoomId: string;
+  messageId: string;
+}
+
+/**
+ * 메시지 읽음 알림 (본인)
+ */
+export interface MessageReadNotification {
+  chatRoomId: string;
+  messageId: string;
+  readBy: {
+    userId: number;
+    nickname: string;
+  };
+  readAt: string;
+  unreadCount: number; // 본인의 미읽은 메시지 수
+}
+
+/**
+ * 읽음 상태 업데이트 알림 (다른 참여자들에게)
+ */
+export interface ReadStatusUpdatedNotification {
+  chatRoomId: string;
+  messageId: string;
+  readBy: {
+    userId: number;
+    nickname: string;
+  };
+  readAt: string;
 }

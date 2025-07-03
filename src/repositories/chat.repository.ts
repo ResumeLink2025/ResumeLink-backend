@@ -172,7 +172,7 @@ export class ChatRepository {
     return !!participant;
   }
 
-  // 채팅방 나가기 (개선된 로직)
+  // 채팅방 나가기
   async leaveChatRoom(chatRoomId: string, userId: string): Promise<{ shouldArchiveRoom: boolean }> {
     return await prisma.$transaction(async (tx) => {
       // 1. 현재 사용자의 참여자 레코드 찾기

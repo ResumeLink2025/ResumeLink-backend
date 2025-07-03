@@ -13,7 +13,10 @@ import {
   SendMessageRequest,
   MessageSentResponse,
   NewMessageNotification,
-  MessageSendFailedNotification
+  MessageSendFailedNotification,
+  MarkAsReadRequest,
+  MessageReadNotification,
+  ReadStatusUpdatedNotification
 } from '../types/socket.types';
 import { ChatRoomService } from '../services/chat.service';
 import { MessageService } from '../services/message.service';
@@ -139,6 +142,25 @@ export const setupSocketHandlers = (io: Server) => {
         
         socket.emit('message:send_failed', failureNotification);
         console.error(`[Socket] 메시지 전송 실패 (${socket.user?.nickname}):`, error);
+      }
+    });
+
+    // === 메시지 읽음 상태 이벤트 ===
+    socket.on('message:mark_read', async (data: MarkAsReadRequest, callback) => {
+      try {
+        const response = await handleMarkAsRead(socket, data);
+        callback?.(response);
+      } catch (error) {
+        const errorResponse: SocketResponse<null> = {
+          success: false,
+          error: {
+            message: error instanceof ServiceError ? error.message : '읽음 상태 업데이트 중 오류가 발생했습니다.',
+            code: error instanceof ServiceError ? error.status.toString() : 'INTERNAL_ERROR'
+          },
+          timestamp: new Date().toISOString()
+        };
+        callback?.(errorResponse);
+        console.error(`[Socket] 읽음 상태 업데이트 실패 (${socket.user?.nickname}):`, error);
       }
     });
 
@@ -461,6 +483,72 @@ async function handleMessageSend(socket: AuthenticatedSocket, data: SendMessageR
   socket.to(chatRoomId).emit('message:new', newMessageNotification);
 
   console.log(`[Socket] 메시지 전송: ${socket.user?.nickname} -> ${chatRoomId}, 내용: ${content.substring(0, 50)}...`);
+
+  return response;
+}
+
+/**
+ * 메시지 읽음 상태 처리
+ * @param socket 인증된 소켓 연결
+ * @param data 읽음 처리 요청 데이터
+ * @returns 읽음 상태 업데이트 응답
+ */
+async function handleMarkAsRead(
+  socket: AuthenticatedSocket, 
+  data: MarkAsReadRequest
+): Promise<SocketResponse<null>> {
+  const { chatRoomId, messageId } = data;
+  const userId = socket.userId!;
+
+  console.log(`[Socket] 읽음 상태 처리: ${socket.user?.nickname} -> ${chatRoomId}, 메시지: ${messageId}`);
+
+  // 1. 요청 데이터 검증
+  if (!chatRoomId || !messageId) {
+    throw new ServiceError(400, '채팅방 ID와 메시지 ID가 필요합니다.');
+  }
+
+  // 2. 메시지 읽음 상태 업데이트
+  await messageService.markAsRead(chatRoomId, userId.toString(), messageId);
+
+  // 3. 업데이트된 미읽은 메시지 수 계산
+  const unreadCount = await messageService.getUnreadMessageCount(chatRoomId, userId.toString());
+
+  // 4. 성공 응답
+  const response: SocketResponse<null> = {
+    success: true,
+    data: null,
+    timestamp: new Date().toISOString()
+  };
+
+  // 5. 읽음 상태 알림을 요청자에게 전송
+  const readNotification: MessageReadNotification = {
+    messageId,
+    chatRoomId,
+    readBy: {
+      userId,
+      nickname: socket.user!.nickname
+    },
+    readAt: new Date().toISOString(),
+    unreadCount
+  };
+
+  socket.emit('message:read', readNotification);
+
+  // 6. 읽음 상태 업데이트를 채팅방의 다른 참여자들에게 브로드캐스트
+  const readStatusNotification: ReadStatusUpdatedNotification = {
+    messageId,
+    chatRoomId,
+    readBy: {
+      userId,
+      nickname: socket.user!.nickname
+    },
+    readAt: new Date().toISOString()
+  };
+
+  // 읽음 처리한 사용자를 제외한 채팅방의 다른 참여자들에게만 알림
+  socket.to(chatRoomId).emit('message:read_status_updated', readStatusNotification);
+
+  console.log(`[Socket] 읽음 상태 완료: ${socket.user?.nickname} -> ${chatRoomId}, 미읽음: ${unreadCount}`);
 
   return response;
 }
