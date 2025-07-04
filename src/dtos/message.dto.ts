@@ -72,6 +72,10 @@ export class GetMessagesRequestDto {
   @IsOptional()
   @IsString()
   direction?: 'before' | 'after' = 'before'; // cursor 기준 방향
+  
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  fromFirstUnread?: boolean = false; // 첫 번째 미읽은 메시지부터 조회
 }
 
 // 메시지 목록 응답 DTO
@@ -88,8 +92,4 @@ export class UpdateMessageRequestDto {
   text!: string;
 }
 
-// 읽음 상태 업데이트 요청 DTO
-export class MarkAsReadRequestDto {
-  @IsUUID()
-  messageId!: string;
-}
+

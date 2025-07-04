@@ -5,7 +5,8 @@ import {
   MessageResponseDto, 
   GetMessagesRequestDto,
   MessageListResponseDto,
-  UpdateMessageRequestDto 
+  UpdateMessageRequestDto,
+  MessageType
 } from '../dtos/message.dto';
 import { ServiceError } from '../utils/ServiceError';
 import { plainToInstance } from 'class-transformer';
@@ -75,22 +76,34 @@ export class MessageService {
       throw MessageErrors.CHAT_ROOM_NOT_ACCESSIBLE();
     }
 
-    // 2. 메시지 목록 조회
+    let cursor = query.cursor;
+
+    // 2. "첫 번째 미읽은 메시지부터" 옵션 처리
+    if (query.fromFirstUnread && !cursor) {
+      const firstUnreadMessageId = await this.messageRepository.getFirstUnreadMessageId(chatRoomId, userId);
+      if (firstUnreadMessageId) {
+        cursor = firstUnreadMessageId;
+        // 첫 번째 미읽은 메시지를 포함하여 조회하기 위해 direction을 'after'로 설정
+        query.direction = 'after';
+      }
+    }
+
+    // 3. 메시지 목록 조회
     const messages = await this.messageRepository.findMessagesByChatRoomId(chatRoomId, {
       limit: query.limit || 20,
-      cursor: query.cursor,
+      cursor,
       direction: query.direction || 'before'
     });
 
-    // 3. 총 메시지 수 조회
+    // 4. 총 메시지 수 조회
     const total = await this.messageRepository.getMessageCount(chatRoomId);
 
-    // 4. 응답 데이터 구성
+    // 5. 응답 데이터 구성
     const transformedMessages = messages.map(message => 
       this.transformToMessageResponse(message)
     );
 
-    // 5. 다음 커서 설정
+    // 6. 다음 커서 설정
     const hasMore = messages.length === (query.limit || 20);
     const nextCursor = hasMore && messages.length > 0 
       ? messages[messages.length - 1].id 
@@ -184,6 +197,25 @@ export class MessageService {
     return await this.messageRepository.getUnreadMessageCount(chatRoomId, userId);
   }
 
+  // 모든 미읽은 메시지 일괄 읽음 처리 (채팅방 입장 시만 사용)
+  async markAllUnreadMessagesAsRead(
+    chatRoomId: string, 
+    userId: string
+  ): Promise<{ readCount: number; lastReadMessageId?: string }> {
+    // 1. 채팅방 참여자 권한 확인
+    const isParticipant = await this.chatRepository.isChatRoomParticipant(chatRoomId, userId);
+    if (!isParticipant) {
+      throw MessageErrors.CHAT_ROOM_NOT_ACCESSIBLE();
+    }
+
+    // 2. 미읽은 메시지들을 일괄로 읽음 처리
+    const result = await this.messageRepository.markAllUnreadMessagesAsRead(chatRoomId, userId);
+    
+    console.log(`[MessageService] 채팅방 입장 시 일괄 읽음 처리: 사용자 ${userId}, 채팅방 ${chatRoomId}, 읽은 수: ${result.readCount}`);
+    
+    return result;
+  }
+
   // 데이터 변환 헬퍼 메서드
   private transformToMessageResponse(message: MessageWithSender): MessageResponseDto {
     return {
@@ -194,7 +226,7 @@ export class MessageService {
       fileUrl: message.fileUrl || undefined,
       fileName: message.fileName || undefined,
       fileSize: message.fileSize || undefined,
-      messageType: message.messageType as any,
+      messageType: message.messageType as MessageType,
       createdAt: message.createdAt.toISOString(),
       updatedAt: message.updatedAt.toISOString(),
       isEdited: message.isEdited,

@@ -14,9 +14,7 @@ import {
   MessageSentResponse,
   NewMessageNotification,
   MessageSendFailedNotification,
-  MarkAsReadRequest,
-  MessageReadNotification,
-  ReadStatusUpdatedNotification
+  MessageReadNotification
 } from '../types/socket.types';
 import { ChatRoomService } from '../services/chat.service';
 import { MessageService } from '../services/message.service';
@@ -145,26 +143,7 @@ export const setupSocketHandlers = (io: Server) => {
       }
     });
 
-    // === 메시지 읽음 상태 이벤트 ===
-    socket.on('message:mark_read', async (data: MarkAsReadRequest, callback) => {
-      try {
-        const response = await handleMarkAsRead(socket, data);
-        callback?.(response);
-      } catch (error) {
-        const errorResponse: SocketResponse<null> = {
-          success: false,
-          error: {
-            message: error instanceof ServiceError ? error.message : '읽음 상태 업데이트 중 오류가 발생했습니다.',
-            code: error instanceof ServiceError ? error.status.toString() : 'INTERNAL_ERROR'
-          },
-          timestamp: new Date().toISOString()
-        };
-        callback?.(errorResponse);
-        console.error(`[Socket] 읽음 상태 업데이트 실패 (${socket.user?.nickname}):`, error);
-      }
-    });
-
-    // 연결 해제 이벤트
+    // 연결 해제 이벤트 (임시 세션 종료만)
     socket.on('disconnect', (reason) => {
       console.log(`[Socket] 연결 해제: ${socket.user?.nickname} (${socket.id}) - ${reason}`);
       
@@ -172,11 +151,13 @@ export const setupSocketHandlers = (io: Server) => {
         // 연결된 사용자 목록에서 제거
         connectedUsers.delete(socket.userId);
         
-        // 참여 중인 모든 채팅방에서 나가기 처리
+        // 현재 세션에서만 채팅방 나가기 (영구 퇴장 아님)
         const userJoinedRooms = userRooms.get(socket.userId);
         if (userJoinedRooms) {
           userJoinedRooms.forEach(roomId => {
-            handleUserDisconnectFromRoom(socket, roomId);
+            // Socket.IO 방에서만 나가기 (DB는 건드리지 않음)
+            socket.leave(roomId);
+            removeUserFromCurrentSession(socket.userId!, roomId);
           });
         }
       }
@@ -207,13 +188,36 @@ async function handleRoomJoin(socket: AuthenticatedSocket, data: JoinRoomRequest
   const userId = socket.userId!;
 
   // 채팅방 참여 권한 확인
-  const chatRoom = await chatService.getChatRoomById(userId.toString(), chatRoomId);
+  const chatRoom = await chatService.getChatRoomById(chatRoomId, userId.toString());
   
   // Socket.IO 방에 입장
   socket.join(chatRoomId);
   
   // 메모리에 사용자-방 매핑 추가
   addUserToRoom(userId, chatRoomId);
+  
+  // 채팅방 입장과 동시에 미읽은 메시지 읽음 처리
+  try {
+    const readResult = await messageService.markAllUnreadMessagesAsRead(chatRoomId, userId.toString());
+    
+    // 읽은 메시지가 있다면 상대방에게 간단한 읽음 상태 업데이트만 전송
+    // 카카오톡처럼 "1" 표시가 사라지도록 하는 용도
+    if (readResult.readCount > 0) {
+      const readNotification: MessageReadNotification = {
+        chatRoomId,
+        readByUserId: userId,
+        lastReadMessageId: readResult.lastReadMessageId
+      };
+
+      // 상대방에게만 읽음 상태 업데이트 알림 (UI 뱃지 제거용)
+      socket.to(chatRoomId).emit('message:read', readNotification);
+      
+      console.log(`[Socket] 미읽은 메시지 읽음 처리: ${socket.user?.nickname}, 읽은 수: ${readResult.readCount}`);
+    }
+  } catch (error) {
+    console.error(`[Socket] 읽음 처리 실패:`, error);
+    // 읽음 처리 실패해도 입장은 성공시킴
+  }
   
   // 방의 다른 참여자들에게 입장 알림
   const joinNotification: UserJoinedRoomNotification = {
@@ -230,8 +234,7 @@ async function handleRoomJoin(socket: AuthenticatedSocket, data: JoinRoomRequest
   // 현재 참여자 목록 구성
   const participants = chatRoom.participants.map(p => ({
     userId: parseInt(p.userId),
-    nickname: p.user?.profile?.nickname || 'Unknown',
-    isOnline: isUserOnline(parseInt(p.userId))
+    nickname: p.user?.profile?.nickname || 'Unknown'
   }));
   
   // 성공 응답
@@ -259,24 +262,34 @@ async function handleRoomJoin(socket: AuthenticatedSocket, data: JoinRoomRequest
 }
 
 /**
- * 채팅방 나가기 처리
+ * 채팅방 영구 나가기 처리 (소프트 삭제)
  */
 async function handleRoomLeave(socket: AuthenticatedSocket, data: LeaveRoomRequest): Promise<SocketResponse<RoomLeftResponse>> {
   const { chatRoomId } = data;
   const userId = socket.userId!;
   
-  // 채팅방 참여 여부 확인
-  if (!isUserInRoom(userId, chatRoomId)) {
-    throw new ServiceError(400, '참여하지 않은 채팅방입니다.');
+  // 1. 채팅방 참여 여부 확인
+  const chatRoom = await chatService.getChatRoomById(chatRoomId, userId.toString());
+  if (!chatRoom) {
+    throw new ServiceError(404, '채팅방을 찾을 수 없습니다.');
+  }
+
+  // 2. DB에서 소프트 삭제 (leftAt 컬럼 업데이트)
+  try {
+    await chatService.leaveChatRoom(chatRoomId, userId.toString());
+    console.log(`[Socket] 채팅방 영구 나가기 (소프트 삭제): ${socket.user?.nickname} <- ${chatRoomId}`);
+  } catch (error) {
+    console.error(`[Socket] 채팅방 나가기 DB 처리 실패:`, error);
+    throw new ServiceError(500, '채팅방 나가기 처리에 실패했습니다.');
   }
   
-  // Socket.IO 방에서 나가기
+  // 3. Socket.IO 방에서 나가기 (현재 세션)
   socket.leave(chatRoomId);
   
-  // 메모리에서 사용자-방 매핑 제거
+  // 4. 메모리에서 영구 제거 (영구 퇴장이므로)
   removeUserFromRoom(userId, chatRoomId);
   
-  // 방의 다른 참여자들에게 나가기 알림
+  // 5. 다른 참여자들에게 나가기 알림 (상대방이 메시지 전송 불가하도록)
   const leaveNotification: UserLeftRoomNotification = {
     chatRoomId,
     user: {
@@ -288,7 +301,7 @@ async function handleRoomLeave(socket: AuthenticatedSocket, data: LeaveRoomReque
   
   socket.to(chatRoomId).emit('room:user_left', leaveNotification);
   
-  // 성공 응답
+  // 6. 성공 응답
   const response: SocketResponse<RoomLeftResponse> = {
     success: true,
     data: {
@@ -298,7 +311,7 @@ async function handleRoomLeave(socket: AuthenticatedSocket, data: LeaveRoomReque
     timestamp: new Date().toISOString()
   };
   
-  // 본인에게 나가기 확인 알림
+  // 7. 본인에게 나가기 확인 알림
   const selfNotification: RoomLeftNotification = {
     chatRoomId,
     message: '채팅방에서 나갔습니다.',
@@ -307,36 +320,7 @@ async function handleRoomLeave(socket: AuthenticatedSocket, data: LeaveRoomReque
   
   socket.emit('room:left', selfNotification);
   
-  console.log(`[Socket] 채팅방 나가기: ${socket.user?.nickname} <- ${chatRoomId}`);
-  
   return response;
-}
-
-/**
- * 연결 해제 시 방에서 나가기 처리
- */
-function handleUserDisconnectFromRoom(socket: AuthenticatedSocket, roomId: string): void {
-  const userId = socket.userId!;
-  
-  // Socket.IO 방에서 나가기
-  socket.leave(roomId);
-  
-  // 메모리에서 사용자-방 매핑 제거
-  removeUserFromRoom(userId, roomId);
-  
-  // 다른 참여자들에게 나가기 알림
-  const leaveNotification: UserLeftRoomNotification = {
-    chatRoomId: roomId,
-    user: {
-      userId,
-      nickname: socket.user!.nickname
-    },
-    timestamp: new Date().toISOString()
-  };
-  
-  socket.to(roomId).emit('room:user_left', leaveNotification);
-  
-  console.log(`[Socket] 연결 해제로 인한 채팅방 나가기: ${socket.user?.nickname} <- ${roomId}`);
 }
 
 /**
@@ -357,7 +341,7 @@ function addUserToRoom(userId: number, roomId: string): void {
 }
 
 /**
- * 사용자를 채팅방에서 제거
+ * 사용자를 채팅방에서 제거 (영구 퇴장용)
  */
 function removeUserFromRoom(userId: number, roomId: string): void {
   // 방별 사용자 목록에서 제거
@@ -377,6 +361,16 @@ function removeUserFromRoom(userId: number, roomId: string): void {
       userRooms.delete(userId);
     }
   }
+}
+
+/**
+ * 현재 세션에서만 사용자를 채팅방에서 제거 (임시 연결 해제용)
+ * 재연결 시 자동 입장을 위해 메모리는 유지하고 Socket.IO 방에서만 나감
+ */
+function removeUserFromCurrentSession(userId: number, roomId: string): void {
+  // 임시 연결 해제시에는 메모리 매핑을 유지함
+  // Socket.IO 방에서의 leave는 disconnect 이벤트에서 자동 처리됨
+  console.log(`[Socket] 임시 세션 종료: ${userId} <- ${roomId} (메모리 유지)`);
 }
 
 /**
@@ -404,45 +398,36 @@ export const getUserRooms = (userId: number): string[] => {
 };
 
 /**
- * 사용자의 온라인 상태 확인
- */
-function isUserOnline(userId: number): boolean {
-  return connectedUsers.has(userId);
-}
-
-/**
- * 온라인 사용자 목록 조회
- */
-export const getOnlineUsers = (): number[] => {
-  return Array.from(connectedUsers.keys());
-};
-
-/**
- * 특정 사용자의 소켓 인스턴스 조회
- */
-export const getUserSocket = (userId: number): AuthenticatedSocket | undefined => {
-  return connectedUsers.get(userId);
-};
-
-/**
  * 메시지 전송 처리
  */
 async function handleMessageSend(socket: AuthenticatedSocket, data: SendMessageRequest): Promise<SocketResponse<MessageSentResponse>> {
-  const { chatRoomId, content, messageType = 'TEXT' } = data;
+  const { chatRoomId, content, messageType = 'TEXT', fileUrl, fileName, fileSize } = data;
   const userId = socket.userId!;
 
   // 1. 입력 데이터 검증
-  if (!content?.trim()) {
-    throw new ServiceError(400, '메시지 내용은 필수입니다.');
+  if (messageType === 'TEXT' && !content?.trim()) {
+    throw new ServiceError(400, '텍스트 메시지의 내용은 필수입니다.');
+  }
+  if ((messageType === 'IMAGE' || messageType === 'FILE') && !fileUrl) {
+    throw new ServiceError(400, '파일 메시지는 파일 URL이 필수입니다.');
   }
 
   // 2. 채팅방 참여 권한 확인
   const chatRoom = await chatService.getChatRoomById(chatRoomId, userId.toString());
   
+  // 상대방이 채팅방을 나갔는지 확인
+  const activeParticipants = chatRoom.participants.filter(p => p.leftAt === null);
+  if (activeParticipants.length < 2) {
+    throw new ServiceError(400, '상대방이 채팅방을 나가서 메시지를 보낼 수 없습니다.');
+  }
+  
   // 3. 메시지 저장
   const savedMessage = await messageService.sendMessage(chatRoomId, userId.toString(), {
-    text: content.trim(),
-    messageType: messageType as any // MessageType enum과 호환성을 위해 any 사용
+    text: content?.trim() || '',
+    messageType: messageType as MessageType, // 명시적 타입 캐스팅
+    fileUrl,
+    fileName,
+    fileSize
   });
 
   // 4. 성공 응답 데이터 구성
@@ -452,6 +437,9 @@ async function handleMessageSend(socket: AuthenticatedSocket, data: SendMessageR
     content: savedMessage.text || '',
     messageType: savedMessage.messageType as 'TEXT' | 'IMAGE' | 'FILE',
     createdAt: savedMessage.createdAt,
+    fileUrl: savedMessage.fileUrl || undefined,
+    fileName: savedMessage.fileName || undefined,
+    fileSize: savedMessage.fileSize || undefined,
     sender: {
       userId,
       nickname: socket.user!.nickname
@@ -465,90 +453,27 @@ async function handleMessageSend(socket: AuthenticatedSocket, data: SendMessageR
     timestamp: new Date().toISOString()
   };
 
-  // 6. 채팅방의 다른 참여자들에게 새 메시지 브로드캐스트
+  // 6. 단순화: 채팅방의 모든 소켓에 메시지 전송 (온라인/오프라인 구분 없음)
   const newMessageNotification: NewMessageNotification = {
     messageId: savedMessage.id,
     chatRoomId: savedMessage.chatRoomId,
     content: savedMessage.text || '',
     messageType: savedMessage.messageType as 'TEXT' | 'IMAGE' | 'FILE',
     createdAt: savedMessage.createdAt,
+    fileUrl: savedMessage.fileUrl || undefined,
+    fileName: savedMessage.fileName || undefined,
+    fileSize: savedMessage.fileSize || undefined,
     sender: {
       userId,
       nickname: socket.user!.nickname
-    },
-    unreadCount: 1 // 기본값, 추후 실제 계산 로직으로 변경
+    }
   };
 
-  // 전송자를 제외한 채팅방의 다른 참여자들에게만 알림
+  // 채팅방의 모든 소켓에 전송 (접속 중인 사람만 실시간으로 받음)
   socket.to(chatRoomId).emit('message:new', newMessageNotification);
 
-  console.log(`[Socket] 메시지 전송: ${socket.user?.nickname} -> ${chatRoomId}, 내용: ${content.substring(0, 50)}...`);
-
-  return response;
-}
-
-/**
- * 메시지 읽음 상태 처리
- * @param socket 인증된 소켓 연결
- * @param data 읽음 처리 요청 데이터
- * @returns 읽음 상태 업데이트 응답
- */
-async function handleMarkAsRead(
-  socket: AuthenticatedSocket, 
-  data: MarkAsReadRequest
-): Promise<SocketResponse<null>> {
-  const { chatRoomId, messageId } = data;
-  const userId = socket.userId!;
-
-  console.log(`[Socket] 읽음 상태 처리: ${socket.user?.nickname} -> ${chatRoomId}, 메시지: ${messageId}`);
-
-  // 1. 요청 데이터 검증
-  if (!chatRoomId || !messageId) {
-    throw new ServiceError(400, '채팅방 ID와 메시지 ID가 필요합니다.');
-  }
-
-  // 2. 메시지 읽음 상태 업데이트
-  await messageService.markAsRead(chatRoomId, userId.toString(), messageId);
-
-  // 3. 업데이트된 미읽은 메시지 수 계산
-  const unreadCount = await messageService.getUnreadMessageCount(chatRoomId, userId.toString());
-
-  // 4. 성공 응답
-  const response: SocketResponse<null> = {
-    success: true,
-    data: null,
-    timestamp: new Date().toISOString()
-  };
-
-  // 5. 읽음 상태 알림을 요청자에게 전송
-  const readNotification: MessageReadNotification = {
-    messageId,
-    chatRoomId,
-    readBy: {
-      userId,
-      nickname: socket.user!.nickname
-    },
-    readAt: new Date().toISOString(),
-    unreadCount
-  };
-
-  socket.emit('message:read', readNotification);
-
-  // 6. 읽음 상태 업데이트를 채팅방의 다른 참여자들에게 브로드캐스트
-  const readStatusNotification: ReadStatusUpdatedNotification = {
-    messageId,
-    chatRoomId,
-    readBy: {
-      userId,
-      nickname: socket.user!.nickname
-    },
-    readAt: new Date().toISOString()
-  };
-
-  // 읽음 처리한 사용자를 제외한 채팅방의 다른 참여자들에게만 알림
-  socket.to(chatRoomId).emit('message:read_status_updated', readStatusNotification);
-
-  console.log(`[Socket] 읽음 상태 완료: ${socket.user?.nickname} -> ${chatRoomId}, 미읽음: ${unreadCount}`);
+  const displayContent = messageType === 'TEXT' ? content : `[${messageType}] ${fileName || 'file'}`;
+  console.log(`[Socket] 메시지 전송: ${socket.user?.nickname} -> ${chatRoomId}, 내용: ${displayContent?.substring(0, 50)}...`);
 
   return response;
 }

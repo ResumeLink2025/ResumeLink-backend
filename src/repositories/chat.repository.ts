@@ -157,7 +157,18 @@ export class ChatRepository {
       }
     });
 
-    return chatRooms;
+    // 각 채팅방에 대해 미읽은 메시지 수 계산
+    const chatRoomsWithUnreadCount = await Promise.all(
+      chatRooms.map(async (chatRoom) => {
+        const unreadCount = await this.getUnreadMessageCount(chatRoom.id, userId);
+        return {
+          ...chatRoom,
+          unreadCount
+        };
+      })
+    );
+
+    return chatRoomsWithUnreadCount;
   }
 
   // 채팅방 참여자인지 확인 (활성 상태만)
@@ -221,6 +232,40 @@ export class ChatRepository {
 
   // 채팅방의 미읽은 메시지 수 계산
   async getUnreadMessageCount(chatRoomId: string, userId: string): Promise<number> {
-    return 0;
+    // 현재 사용자의 참여자 정보 조회
+    const participant = await prisma.chatParticipant.findFirst({
+      where: {
+        chatRoomId,
+        userId,
+        leftAt: null
+      }
+    });
+
+    if (!participant) {
+      return 0;
+    }
+
+    // lastReadMessageId 이후의 메시지 수 계산
+    const unreadCount = await prisma.message.count({
+      where: {
+        chatRoomId,
+        isDeleted: false,
+        senderId: { not: userId }, // 본인이 보낸 메시지 제외
+        ...(participant.lastReadMessageId
+          ? {
+              createdAt: {
+                gt: await prisma.message
+                  .findUnique({
+                    where: { id: participant.lastReadMessageId },
+                    select: { createdAt: true }
+                  })
+                  .then(msg => msg?.createdAt)
+              }
+            }
+          : {}) // lastReadMessageId가 없으면 모든 메시지가 미읽음
+      }
+    });
+
+    return unreadCount;
   }
 }

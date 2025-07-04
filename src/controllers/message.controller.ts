@@ -3,13 +3,19 @@ import { MessageService } from '../services/message.service';
 import { 
   SendMessageRequestDto, 
   GetMessagesRequestDto,
-  UpdateMessageRequestDto,
-  MarkAsReadRequestDto 
+  UpdateMessageRequestDto
 } from '../dtos/message.dto';
 import { ServiceError } from '../utils/ServiceError';
+import { Server } from 'socket.io';
+import { getMessageType } from '../middlewares/middleware.upload';
 
 export class MessageController {
   private messageService = new MessageService();
+  private io?: Server;
+
+  constructor(io?: Server) {
+    this.io = io;
+  }
 
   // 메시지 전송
   async sendMessage(req: Request, res: Response) {
@@ -53,7 +59,65 @@ export class MessageController {
     }
   }
 
-  // 메시지 목록 조회
+  // 파일 업로드와 함께 메시지 전송
+  async sendFileMessage(req: Request, res: Response) {
+    try {
+      const currentUserId = req.user?.userId;
+      if (!currentUserId) {
+        return res.status(401).json({ 
+          success: false,
+          message: '인증이 필요합니다.' 
+        });
+      }
+
+      const { chatRoomId } = req.params;
+      if (!chatRoomId) {
+        return res.status(400).json({ 
+          success: false,
+          message: '채팅방 ID가 필요합니다.' 
+        });
+      }
+
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: '파일이 필요합니다.'
+        });
+      }
+
+      // 업로드된 파일 정보로 메시지 DTO 생성
+      const sendMessageDto: SendMessageRequestDto = {
+        text: req.body.text || '', // 선택적 텍스트 (파일과 함께 보낼 수 있음)
+        fileUrl: `/uploads/chat/${file.filename}`,
+        fileName: file.originalname,
+        fileSize: file.size,
+        messageType: getMessageType(file.mimetype) as any
+      };
+
+      const message = await this.messageService.sendMessage(chatRoomId, currentUserId, sendMessageDto);
+
+      return res.status(201).json({
+        success: true,
+        message: '파일 메시지가 전송되었습니다.',
+        data: message
+      });
+    } catch (error: any) {
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ 
+          success: false,
+          message: error.message 
+        });
+      }
+      console.error('파일 메시지 전송 오류:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: '파일 메시지 전송 중 오류가 발생했습니다.' 
+      });
+    }
+  }
+
+  // 메시지 목록 조회 (단순 데이터 반환만)
   async getMessages(req: Request, res: Response) {
     try {
       const currentUserId = req.user?.userId;
@@ -78,6 +142,7 @@ export class MessageController {
         direction: (req.query.direction as 'before' | 'after') || 'before'
       };
 
+      // 단순히 메시지만 조회 (읽음 처리 제거)
       const messageList = await this.messageService.getMessages(chatRoomId, currentUserId, query);
 
       return res.status(200).json({
@@ -178,47 +243,6 @@ export class MessageController {
       return res.status(500).json({ 
         success: false,
         message: '메시지 삭제 중 오류가 발생했습니다.' 
-      });
-    }
-  }
-
-  // 읽음 상태 업데이트
-  async markAsRead(req: Request, res: Response) {
-    try {
-      const currentUserId = req.user?.userId;
-      if (!currentUserId) {
-        return res.status(401).json({ 
-          success: false,
-          message: '인증이 필요합니다.' 
-        });
-      }
-
-      const { chatRoomId } = req.params;
-      if (!chatRoomId) {
-        return res.status(400).json({ 
-          success: false,
-          message: '채팅방 ID가 필요합니다.' 
-        });
-      }
-
-      const markAsReadDto = req.body as MarkAsReadRequestDto;
-      await this.messageService.markAsRead(chatRoomId, currentUserId, markAsReadDto.messageId);
-
-      return res.status(200).json({
-        success: true,
-        message: '읽음 상태가 업데이트되었습니다.'
-      });
-    } catch (error: any) {
-      if (error instanceof ServiceError) {
-        return res.status(error.status).json({ 
-          success: false,
-          message: error.message 
-        });
-      }
-      console.error('읽음 상태 업데이트 오류:', error);
-      return res.status(500).json({ 
-        success: false,
-        message: '읽음 상태 업데이트 중 오류가 발생했습니다.' 
       });
     }
   }

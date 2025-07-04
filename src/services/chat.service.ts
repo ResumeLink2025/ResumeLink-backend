@@ -139,7 +139,7 @@ export class ChatRoomService implements IChatRoomService {
       createdAt: chatRoom.createdAt.toISOString(),
       participants,
       lastMessage,
-      unreadCount: 0
+      unreadCount: chatRoom.unreadCount || 0 // 실제 미읽은 메시지 수 사용
     });
   }
 }
