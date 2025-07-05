@@ -142,4 +142,18 @@ export class ChatRoomService implements IChatRoomService {
       unreadCount: chatRoom.unreadCount || 0 // 실제 미읽은 메시지 수 사용
     });
   }
+
+  // 캐시 통계 조회 (개발/디버깅용)
+  getCacheStats(): {
+    chatRoomsCache: number;
+    participantCache: number;
+    chatRoomDetailsCache: number;
+  } {
+    return this.chatRepository.getCacheStats();
+  }
+
+  // 캐시 수동 정리 (개발/디버깅용)
+  cleanupExpiredCaches(): void {
+    this.chatRepository.cleanupExpiredCaches();
+  }
 }

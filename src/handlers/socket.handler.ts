@@ -29,13 +29,13 @@ import { ServiceError } from '../utils/ServiceError';
  */
 
 // 연결된 사용자 관리 (메모리 기반, 추후 Redis로 확장 가능)
-const connectedUsers = new Map<number, AuthenticatedSocket>();
+const connectedUsers = new Map<string, AuthenticatedSocket>();
 
 // 채팅방별 사용자 관리 (roomId -> Set<userId>)
-const roomUsers = new Map<string, Set<number>>();
+const roomUsers = new Map<string, Set<string>>();
 
 // 사용자별 참여 중인 채팅방 관리 (userId -> Set<roomId>)
-const userRooms = new Map<number, Set<string>>();
+const userRooms = new Map<string, Set<string>>();
 
 // 서비스 인스턴스
 const chatService = new ChatRoomService();
@@ -233,7 +233,7 @@ async function handleRoomJoin(socket: AuthenticatedSocket, data: JoinRoomRequest
   
   // 현재 참여자 목록 구성
   const participants = chatRoom.participants.map(p => ({
-    userId: parseInt(p.userId),
+    userId: p.userId,
     nickname: p.user?.profile?.nickname || 'Unknown'
   }));
   
@@ -326,7 +326,7 @@ async function handleRoomLeave(socket: AuthenticatedSocket, data: LeaveRoomReque
 /**
  * 사용자를 채팅방에 추가
  */
-function addUserToRoom(userId: number, roomId: string): void {
+function addUserToRoom(userId: string, roomId: string): void {
   // 방별 사용자 목록에 추가
   if (!roomUsers.has(roomId)) {
     roomUsers.set(roomId, new Set());
@@ -343,7 +343,7 @@ function addUserToRoom(userId: number, roomId: string): void {
 /**
  * 사용자를 채팅방에서 제거 (영구 퇴장용)
  */
-function removeUserFromRoom(userId: number, roomId: string): void {
+function removeUserFromRoom(userId: string, roomId: string): void {
   // 방별 사용자 목록에서 제거
   const roomUserSet = roomUsers.get(roomId);
   if (roomUserSet) {
@@ -367,7 +367,7 @@ function removeUserFromRoom(userId: number, roomId: string): void {
  * 현재 세션에서만 사용자를 채팅방에서 제거 (임시 연결 해제용)
  * 재연결 시 자동 입장을 위해 메모리는 유지하고 Socket.IO 방에서만 나감
  */
-function removeUserFromCurrentSession(userId: number, roomId: string): void {
+function removeUserFromCurrentSession(userId: string, roomId: string): void {
   // 임시 연결 해제시에는 메모리 매핑을 유지함
   // Socket.IO 방에서의 leave는 disconnect 이벤트에서 자동 처리됨
   console.log(`[Socket] 임시 세션 종료: ${userId} <- ${roomId} (메모리 유지)`);
@@ -376,7 +376,7 @@ function removeUserFromCurrentSession(userId: number, roomId: string): void {
 /**
  * 사용자가 특정 채팅방에 참여 중인지 확인
  */
-function isUserInRoom(userId: number, roomId: string): boolean {
+function isUserInRoom(userId: string, roomId: string): boolean {
   const userRoomSet = userRooms.get(userId);
   return userRoomSet ? userRoomSet.has(roomId) : false;
 }
@@ -384,7 +384,7 @@ function isUserInRoom(userId: number, roomId: string): boolean {
 /**
  * 채팅방의 참여자 목록 조회
  */
-export const getRoomUsers = (roomId: string): number[] => {
+export const getRoomUsers = (roomId: string): string[] => {
   const roomUserSet = roomUsers.get(roomId);
   return roomUserSet ? Array.from(roomUserSet) : [];
 };
@@ -392,7 +392,7 @@ export const getRoomUsers = (roomId: string): number[] => {
 /**
  * 사용자가 참여 중인 채팅방 목록 조회
  */
-export const getUserRooms = (userId: number): string[] => {
+export const getUserRooms = (userId: string): string[] => {
   const userRoomSet = userRooms.get(userId);
   return userRoomSet ? Array.from(userRoomSet) : [];
 };

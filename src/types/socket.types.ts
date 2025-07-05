@@ -9,9 +9,9 @@ export interface ServerToClientEvents {
   // 연결 관련
   connected: (data: {
     message: string;
-    userId: number;
+    userId: string;
     user: {
-      id: number;
+      id: string;
       email: string;
       name: string;
       nickname: string;
@@ -58,9 +58,9 @@ export interface InterServerEvents {}
 
 // 소켓 데이터 (인증 정보 등)
 export interface SocketData {
-  userId: number;
+  userId: string;
   user: {
-    id: number;
+    id: string;
     email: string;
     name: string;
     nickname: string;
@@ -111,7 +111,7 @@ export interface LeaveRoomRequest {
 export interface RoomJoinedResponse {
   chatRoomId: string;
   participants: {
-    userId: number;
+    userId: string;
     nickname: string;
   }[];
 }
@@ -130,7 +130,7 @@ export interface RoomLeftResponse {
 export interface RoomJoinedNotification {
   chatRoomId: string;
   participants: {
-    userId: number;
+    userId: string;
     nickname: string;
   }[];
   timestamp: string;
@@ -151,7 +151,7 @@ export interface RoomLeftNotification {
 export interface UserJoinedRoomNotification {
   chatRoomId: string;
   user: {
-    userId: number;
+    userId: string;
     nickname: string;
   };
   timestamp: string;
@@ -163,7 +163,7 @@ export interface UserJoinedRoomNotification {
 export interface UserLeftRoomNotification {
   chatRoomId: string;
   user: {
-    userId: number;
+    userId: string;
     nickname: string;
   };
   timestamp: string;
@@ -196,7 +196,7 @@ export interface MessageSentResponse {
   fileName?: string;
   fileSize?: number;
   sender: {
-    userId: number;
+    userId: string;
     nickname: string;
   };
 }
@@ -214,7 +214,7 @@ export interface NewMessageNotification {
   fileName?: string;
   fileSize?: number;
   sender: {
-    userId: number;
+    userId: string;
     nickname: string;
   };
 }
@@ -250,6 +250,6 @@ export interface MessageSendFailedNotification {
  */
 export interface MessageReadNotification {
   chatRoomId: string;
-  readByUserId: number; // 메시지를 읽은 사용자 ID
+  readByUserId: string; // 메시지를 읽은 사용자 ID
   lastReadMessageId?: string; // 마지막으로 읽은 메시지 ID (optional)
 }

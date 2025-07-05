@@ -10,9 +10,9 @@ import jwt from 'jsonwebtoken';
  */
 
 interface AuthenticatedSocket extends Socket {
-  userId?: number;
+  userId?: string;
   user?: {
-    id: number;
+    id: string;
     email: string;
     name: string;
     nickname: string;

@@ -143,4 +143,43 @@ export class ChatController {
       });
     }
   }
+
+  // 캐시 통계 조회 (개발/디버깅용)
+  async getCacheStats(req: Request, res: Response) {
+    try {
+      const chatRoomService = new ChatRoomService();
+      const stats = chatRoomService.getCacheStats();
+      
+      return res.status(200).json({
+        success: true,
+        message: '캐시 통계를 조회했습니다.',
+        data: stats
+      });
+    } catch (error: any) {
+      console.error('캐시 통계 조회 오류:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: '캐시 통계 조회 중 오류가 발생했습니다.' 
+      });
+    }
+  }
+
+  // 캐시 수동 정리 (개발/디버깅용)
+  async cleanupCache(req: Request, res: Response) {
+    try {
+      const chatRoomService = new ChatRoomService();
+      chatRoomService.cleanupExpiredCaches();
+      
+      return res.status(200).json({
+        success: true,
+        message: '캐시가 정리되었습니다.'
+      });
+    } catch (error: any) {
+      console.error('캐시 정리 오류:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: '캐시 정리 중 오류가 발생했습니다.' 
+      });
+    }
+  }
 }

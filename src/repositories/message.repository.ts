@@ -1,5 +1,6 @@
 import { Message, UserAuth } from '@prisma/client';
 import prisma from '../lib/prisma';
+import { ChatRepository } from './chat.repository';
 
 export type MessageWithSender = Message & {
   sender: UserAuth & {
@@ -11,6 +12,12 @@ export type MessageWithSender = Message & {
 };
 
 export class MessageRepository {
+  private chatRepository: ChatRepository;
+
+  constructor() {
+    this.chatRepository = new ChatRepository();
+  }
+
   // 메시지 전송
   async createMessage(data: {
     chatRoomId: string;
@@ -21,7 +28,7 @@ export class MessageRepository {
     fileSize?: number;
     messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
   }): Promise<MessageWithSender> {
-    return await prisma.message.create({
+    const message = await prisma.message.create({
       data,
       include: {
         sender: {
@@ -36,6 +43,22 @@ export class MessageRepository {
         }
       }
     });
+
+    // 캐시 무효화: 메시지 전송 시 관련 캐시들 무효화
+    const participants = await prisma.chatParticipant.findMany({
+      where: {
+        chatRoomId: data.chatRoomId,
+        leftAt: null
+      },
+      select: {
+        userId: true
+      }
+    });
+
+    const participantUserIds = participants.map(p => p.userId);
+    this.chatRepository.invalidateAllChatRoomCaches(data.chatRoomId, participantUserIds);
+
+    return message;
   }
 
   // 채팅방의 메시지 목록 조회 (커서 기반 페이지네이션)
@@ -183,15 +206,22 @@ export class MessageRepository {
     });
 
     if (!participant || !participant.lastReadMessage) {
-      // 아직 읽은 메시지가 없으면 모든 메시지가 미읽음
-      return await this.getMessageCount(chatRoomId);
+      // 아직 읽은 메시지가 없으면 모든 메시지가 미읽음 (자신이 보낸 메시지 제외)
+      return await prisma.message.count({
+        where: {
+          chatRoomId,
+          isDeleted: false,
+          senderId: { not: userId }
+        }
+      });
     }
 
-    // 마지막 읽은 메시지 이후의 메시지 수 계산
+    // 마지막 읽은 메시지 이후의 메시지 수 계산 (자신이 보낸 메시지 제외)
     return await prisma.message.count({
       where: {
         chatRoomId,
         isDeleted: false,
+        senderId: { not: userId },
         createdAt: {
           gt: participant.lastReadMessage.createdAt
         }

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import coffeechatService from '../services/coffeechat.service';
 import { CoffeeChatStatus } from '@prisma/client';
+import { ServiceError } from '../utils/ServiceError';
 
 const coffeechatController = {
   // 1. 커피챗 신청 생성
@@ -17,7 +18,11 @@ const coffeechatController = {
       const chat = await coffeechatService.createCoffeeChat(userId, receiverId);
       res.status(201).json({ message: '커피챗 신청이 완료되었습니다.', data: chat });
     } catch (error: any) {
-      res.status(error.status || 400).json({ message: error.message || '커피챗 신청 실패' });
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      console.error('커피챗 신청 실패:', error);
+      res.status(500).json({ message: '커피챗 신청 중 오류가 발생했습니다.' });
     }
   },
 
@@ -38,7 +43,11 @@ const coffeechatController = {
       const result = await coffeechatService.updateStatus(id, status as CoffeeChatStatus, userId);
       res.json({ message: '상태가 성공적으로 변경되었습니다.', data: result });
     } catch (error: any) {
-      res.status(error.status || 400).json({ message: error.message || '상태 변경 실패' });
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      console.error('상태 변경 실패:', error);
+      res.status(500).json({ message: '상태 변경 중 오류가 발생했습니다.' });
     }
   },
 
@@ -55,7 +64,11 @@ const coffeechatController = {
       const list = await coffeechatService.getCoffeeChats(userId, type as string);
       res.json({ message: '목록 조회가 완료되었습니다.', data: list });
     } catch (error: any) {
-      res.status(error.status || 400).json({ message: error.message || '목록 조회 실패' });
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      console.error('목록 조회 실패:', error);
+      res.status(500).json({ message: '목록 조회 중 오류가 발생했습니다.' });
     }
   },
 
@@ -72,7 +85,11 @@ const coffeechatController = {
       const detail = await coffeechatService.getCoffeeChatDetail(id, userId);
       res.json({ message: '상세 정보 조회가 완료되었습니다.', data: detail });
     } catch (error: any) {
-      res.status(error.status || 404).json({ message: error.message || '상세 정보 조회 실패' });
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      console.error('상세 정보 조회 실패:', error);
+      res.status(500).json({ message: '상세 정보 조회 중 오류가 발생했습니다.' });
     }
   },
 
@@ -89,7 +106,11 @@ const coffeechatController = {
       await coffeechatService.cancelCoffeeChat(id, userId);
       res.status(204).send();
     } catch (error: any) {
-      res.status(error.status || 400).json({ message: error.message || '취소 실패' });
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      console.error('취소 실패:', error);
+      res.status(500).json({ message: '취소 중 오류가 발생했습니다.' });
     }
   }
 };

@@ -72,5 +72,15 @@ export default function createChatRouter(io?: Server): Router {
     await messageController.getUnreadCount(req, res);
   });
 
+  // 캐시 통계 조회 (개발/디버깅용)
+  router.get('/cache/stats', async (req: Request, res: Response) => {
+    await chatController.getCacheStats(req, res);
+  });
+
+  // 캐시 수동 정리 (개발/디버깅용)
+  router.post('/cache/cleanup', async (req: Request, res: Response) => {
+    await chatController.cleanupCache(req, res);
+  });
+
   return router;
 }
