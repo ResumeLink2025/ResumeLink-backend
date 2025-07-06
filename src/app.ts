@@ -1,30 +1,41 @@
 import express from "express";
 import cors from "cors";
-import authRouter from './routers/auth.router';
+import path from "path";
+import { Server } from 'socket.io';
+import createMainRouter from './routers';  // 팩토리 함수로 변경
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
-
 dotenv.config();
-const app = express();
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-}));
-app.use(express.json());
-app.use(cookieParser());
 
-app.use('/api/auth', authRouter);
+// Socket.IO 인스턴스를 받는 팩토리 함수로 변경
+export default function createApp(io?: Server) {
+  const app = express();
 
-app.set("port", process.env.PORT || 3000);
+  app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  }));
+  app.use(express.json());
+  app.use(cookieParser());
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
-// 테스트를 위한 간단한 새 엔드포인트 추가 (미사용 변수/경로 확인용)
-app.get('/test-route2', (req, res) => {
-  const unusedVariable = "이 변수는 사용되지 않습니다."; // 의도적으로 사용되지 않는 변수
-  res.send('This is a test endpoint.');
-});
+  // 업로드된 파일에 대한 정적 파일 서빙
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-export default app;
+  // Socket.IO 인스턴스를 라우터에 전달
+  app.use('/api', createMainRouter(io));
+
+  app.set("port", process.env.PORT || 3000);
+
+  // 간단 테스트 엔드포인트
+  app.get("/", (req, res) => {
+    res.send("Hello World!");
+  });
+  // 테스트를 위한 간단한 새 엔드포인트 추가 (미사용 변수/경로 확인용)
+  app.get('/test-route2', (req, res) => {
+    const unusedVariable = "이 변수는 사용되지 않습니다."; // 의도적으로 사용되지 않는 변수
+    res.send(`This is a test endpoint. ${unusedVariable}`);
+  });
+
+  return app;
+}

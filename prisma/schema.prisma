@@ -26,34 +26,40 @@ model UserAuth {
   updatedAt        DateTime        @updatedAt
   refreshTokens    RefreshToken[]
 
+  requestedChats  CoffeeChat[]      @relation("RequestedChats")
+  receivedChats   CoffeeChat[]      @relation("ReceivedChats")
+  profile         UserProfile?      @relation("UserToProfile")
+  ChatParticipant ChatParticipant[]
+  Message         Message[]
+
   @@unique([authProvider, authProviderId])
-  profile          UserProfile?    @relation("UserToProfile")
 }
 
 model UserProfile {
-  id                String           @id @db.Uuid @map("id")
-  nickname          String
-  birthday          DateTime?
-  gender            Gender?
-  customSkill       Json?
-  customInterest    Json?
-  customPosition    Json?
-  experienceYears   Int              @default(0)
-  employmentStatus  EmploymentStatus?
-  imageUrl          String?
-  updatedAt         DateTime         @updatedAt
-  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id])
+  id               String            @id @db.Uuid @map("id")
+  nickname         String
+  birthday         DateTime?
+  gender           Gender?
+  customSkill      Json?
+  customInterest   Json?
+  customPosition   Json?
+  experienceYears  Int               @default(0)
+  employmentStatus EmploymentStatus?
+  imageUrl         String?
+  updatedAt        DateTime          @updatedAt
+  user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
 }
 
 model RefreshToken {
-  id         String     @id @default(uuid()) @db.Uuid
-  userId     String     @db.Uuid
-  token      String     @unique
-  createdAt  DateTime
-  expiresAt  DateTime
-  userAgent  String?
-  ipAddress  String? 
-  user       UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  token     String   @unique
+  createdAt DateTime
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -75,12 +81,109 @@ enum EmploymentStatus {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(uuid())
-  userId     String
-  token      String   @unique
-  expiresAt  DateTime
-  used       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum CoffeeChatStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+}
+
+model CoffeeChat {
+  id          String           @id @default(uuid()) @db.Uuid
+  requesterId String           @db.Uuid
+  receiverId  String           @db.Uuid
+  status      CoffeeChatStatus @default(pending)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  requester UserAuth @relation("RequestedChats", fields: [requesterId], references: [id], onDelete: Restrict)
+  receiver  UserAuth @relation("ReceivedChats", fields: [receiverId], references: [id], onDelete: Restrict)
+
+  chatRoom ChatRoom?
+
+  @@index([requesterId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([requesterId, receiverId])
+}
+
+model ChatRoom {
+  id           String          @id @default(uuid()) @db.Uuid
+  coffeeChatId String          @unique @db.Uuid
+  status       ChatRoomStatus  @default(active)
+  createdAt    DateTime        @default(now())
+
+  coffeeChat   CoffeeChat @relation(fields: [coffeeChatId], references: [id])
+  participants ChatParticipant[]
+  messages     Message[]
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model ChatParticipant {
+  id                String    @id @default(uuid()) @db.Uuid
+  chatRoomId        String    @db.Uuid
+  userId            String    @db.Uuid
+  lastReadMessageId String?   @db.Uuid
+  joinedAt          DateTime  @default(now())
+  leftAt            DateTime?
+  isVisible         Boolean   @default(true)
+
+  chatRoom        ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user            UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message? @relation("LastReadMessage", fields: [lastReadMessageId], references: [id])
+
+  @@unique([chatRoomId, userId])
+  @@index([userId])
+  @@index([chatRoomId])
+  @@index([userId, leftAt])
+  @@index([userId, isVisible])
+}
+
+model Message {
+  id          String      @id @default(uuid()) @db.Uuid
+  chatRoomId  String      @db.Uuid
+  senderId    String      @db.Uuid
+  text        String?
+  fileUrl     String?
+  fileName    String?
+  fileSize    Int?
+  messageType MessageType @default(TEXT)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isEdited    Boolean     @default(false)
+  isDeleted   Boolean     @default(false)
+
+  chatRoom                ChatRoom          @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender                  UserAuth          @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  lastReadByParticipants  ChatParticipant[] @relation("LastReadMessage")
+
+  @@index([chatRoomId, createdAt])
+  @@index([chatRoomId, isDeleted, createdAt])
+  @@index([senderId])
+  @@index([isDeleted])
+  @@index([chatRoomId, isDeleted])
+}
+
+enum ChatRoomStatus {
+  active
+  archived
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
 }
