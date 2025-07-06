@@ -12,12 +12,12 @@ export const resumeService = {
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const userSkills = await prisma.userSkill.findMany({
-      where: { user: {id: userProfile.id} },
+      where: { user: { id: userProfile.id } },
       include: { skill: true },
     });
 
     const desirePositions = await prisma.desirePosition.findMany({
-      where: { user: {id: userProfile.id} }, 
+      where: { user: { id: userProfile.id } },
       include: { position: true },
     });
 
@@ -78,7 +78,7 @@ export const resumeService = {
   updateResume: async (
     resumeId: string,
     userId: string,
-    updateData: ResumeRequestBody
+    updateData: Partial<ResumeRequestBody>
   ) => {
     const userProfile = await prisma.userProfile.findUnique({
       where: { id: userId },
@@ -113,9 +113,8 @@ export const resumeService = {
 
   getPublicResumesByTitleSearch: async (searchTerm?: string) => {
     if (!searchTerm) {
-      return []; // 검색어 없으면 빈 배열 반환하거나 전체 반환하도록 변경 가능
+      return [];
     }
-
     return resumeRepository.getPublicResumesByTitleSearch(searchTerm);
   },
 };

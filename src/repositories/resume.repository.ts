@@ -35,18 +35,27 @@ export const resumeRepository = {
         experienceNote: experienceNote ?? "",
         theme: data.theme ?? "light",
         categories: data.categories,
+
         skills: {
-          create: skillsRecords.map((skill: Skill) => ({ skillId: skill.id })),
+          create: skillsRecords.map((skill) => ({ skillId: skill.id })),
         },
+
         positions: {
-          connect: positionRecords.map((pos: Position) => ({ id: pos.id })),
+          connect: positionRecords.map((pos) => ({ id: pos.id })),
         },
+
+        // projects는 projectId, aiDescription 포함된 객체 배열로 받음
         projects: {
-          create: data.projects,
+          create: (data.projects ?? []).map((proj: any) => ({
+            projectId: proj.projectId,
+            aiDescription: proj.aiDescription ?? "",
+          })),
         },
+
         activities: {
           create: data.activities ?? [],
         },
+
         certificates: {
           create: (data.certificates ?? []).map((cert) => ({
             name: cert.name,
@@ -108,7 +117,6 @@ export const resumeRepository = {
     } = updateData;
 
     const updatePayload: any = {};
-
     if (title !== undefined) updatePayload.title = title;
     if (summary !== undefined) updatePayload.summary = summary;
     if (experienceNote !== undefined) updatePayload.experienceNote = experienceNote;
@@ -129,7 +137,7 @@ export const resumeRepository = {
             where: { name: { in: skills } },
           });
           await Promise.all(
-            skillRecords.map((skill: Skill) =>
+            skillRecords.map((skill) =>
               tx.resumeSkill.create({
                 data: { resumeId, skillId: skill.id },
               })
@@ -145,7 +153,7 @@ export const resumeRepository = {
             where: { name: { in: positions } },
           });
           await Promise.all(
-            positionRecords.map((pos: Position) =>
+            positionRecords.map((pos) =>
               tx.resumePosition.create({
                 data: { resumeId, positionId: pos.id },
               })
@@ -163,7 +171,7 @@ export const resumeRepository = {
                 data: {
                   resumeId,
                   projectId: proj.projectId,
-                  aiDescription: proj.aiDescription,
+                  aiDescription: proj.aiDescription ?? "",
                 },
               })
             )

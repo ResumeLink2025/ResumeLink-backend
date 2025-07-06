@@ -19,7 +19,7 @@ export interface ResumeRequestBody {
   skills: string[];         // 기술 스택 이름들 (UserSkill + customSkill 포함)
   positions: string[];      // 직군 이름들 (DesirePosition + customPosition 포함)
 
-  projects: AiprojectInfo[]; // 프로젝트 정보 배열
+  projects: AiProjectInfo[]; // 프로젝트 정보 배열
 
   activities?: {
     title: string;
