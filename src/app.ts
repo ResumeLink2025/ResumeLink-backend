@@ -1,28 +1,38 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { Server } from 'socket.io';
+import createMainRouter from './routers';  // 팩토리 함수로 변경
 import authRouter from './routers/auth.router';
 import resumeRouter from './routers/resume.router';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
-
 dotenv.config();
-const app = express();
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-}));
-app.use(express.json());
-app.use(cookieParser());
 
-app.use('/api/auth', authRouter);
-app.use('/api/resumes', resumeRouter);
+// Socket.IO 인스턴스를 받는 팩토리 함수로 변경
+export default function createApp(io?: Server) {
+  const app = express();
 
-app.set("port", process.env.PORT || 3000);
+  app.use(cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  }));
+  app.use(express.json());
+  app.use(cookieParser());
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+  // Socket.IO 인스턴스를 라우터에 전달
+  app.use('/api', createMainRouter(io));
+
+  app.use('/api/auth', authRouter);
+  app.use('/api/resumes', resumeRouter);
+
+  app.set("port", process.env.PORT || 3000);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-
-export default app;
+  return app;
+}

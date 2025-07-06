@@ -17,17 +17,18 @@ model UserAuth {
   updatedAt        DateTime        @updatedAt
   refreshTokens    RefreshToken[]
 
+  requestedChats  CoffeeChat[]      @relation("RequestedChats")
+  receivedChats   CoffeeChat[]      @relation("ReceivedChats")
+  profile         UserProfile?      @relation("UserToProfile")
+  ChatParticipant ChatParticipant[]
+  Message         Message[]
+
   @@unique([authProvider, authProviderId])
-  profile          UserProfile?    @relation("UserToProfile")
   userSkills       UserSkill[]
   desirePositions  DesirePosition[]
   Project          Project[]       @relation("UserToProject")
-  Message          Message[]
-  ChatParticipant  ChatParticipant[]
   Resume           Resume[]        @relation("UserToResume")
   Favorite         Favorite[]
-  CoffeeReqChat    CoffeeChat[]    @relation("RequestedChats")
-  CoffeeRecChat    CoffeeChat[]    @relation("ReceivedChats")
 }
 
 model UserProfile {
@@ -43,9 +44,7 @@ model UserProfile {
   imageUrl          String?
   summary           String?
   updatedAt         DateTime         @updatedAt
-  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id], onDelete: Cascade)
-
-  @@index([id])
+  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id])
 }
 
 model RefreshToken {
