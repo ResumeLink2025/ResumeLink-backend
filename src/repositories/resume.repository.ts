@@ -1,4 +1,5 @@
 import prisma from "../lib/prisma";
+import type { Prisma, Skill, Position } from "@prisma/client";
 import { ResumeRequestBody } from "../../types/resume";
 
 export const resumeRepository = {
@@ -7,7 +8,7 @@ export const resumeRepository = {
     experienceNote: string | undefined,
     data: ResumeRequestBody
   ) => {
-    const positionRecords = await prisma.position.findMany({
+    const positionRecords: Position[] = await prisma.position.findMany({
       where: {
         name: {
           in: Array.isArray(data.positions) ? data.positions : [],
@@ -15,8 +16,8 @@ export const resumeRepository = {
       },
     });
 
-    const skillsRecords = await Promise.all(
-      (data.skills ?? []).map((skillName) =>
+    const skillsRecords: Skill[] = await Promise.all(
+      (data.skills ?? []).map((skillName: string) =>
         prisma.skill.upsert({
           where: { name: skillName },
           create: { name: skillName },
@@ -35,10 +36,10 @@ export const resumeRepository = {
         theme: data.theme ?? "light",
         categories: data.categories,
         skills: {
-          create: skillsRecords.map((skill) => ({ skillId: skill.id })),
+          create: skillsRecords.map((skill: Skill) => ({ skillId: skill.id })),
         },
         positions: {
-          connect: positionRecords.map((pos) => ({ id: pos.id })),
+          connect: positionRecords.map((pos: Position) => ({ id: pos.id })),
         },
         projects: {
           create: data.projects,
@@ -115,7 +116,7 @@ export const resumeRepository = {
     if (theme !== undefined) updatePayload.theme = theme;
     if (categories) updatePayload.categories = categories;
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.resume.update({
         where: { id: resumeId },
         data: updatePayload,
@@ -124,11 +125,11 @@ export const resumeRepository = {
       if (skills) {
         await tx.resumeSkill.deleteMany({ where: { resumeId } });
         if (skills.length > 0) {
-          const skillRecords = await tx.skill.findMany({
+          const skillRecords: Skill[] = await tx.skill.findMany({
             where: { name: { in: skills } },
           });
           await Promise.all(
-            skillRecords.map((skill) =>
+            skillRecords.map((skill: Skill) =>
               tx.resumeSkill.create({
                 data: { resumeId, skillId: skill.id },
               })
@@ -140,11 +141,11 @@ export const resumeRepository = {
       if (positions) {
         await tx.resumePosition.deleteMany({ where: { resumeId } });
         if (positions.length > 0) {
-          const positionRecords = await tx.position.findMany({
+          const positionRecords: Position[] = await tx.position.findMany({
             where: { name: { in: positions } },
           });
           await Promise.all(
-            positionRecords.map((pos) =>
+            positionRecords.map((pos: Position) =>
               tx.resumePosition.create({
                 data: { resumeId, positionId: pos.id },
               })
@@ -273,6 +274,5 @@ export const resumeRepository = {
         },
       },
     });
-  }
-
+  },
 };
