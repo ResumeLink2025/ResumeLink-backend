@@ -12,12 +12,12 @@ export const resumeService = {
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const userSkills = await prisma.userSkill.findMany({
-      where: { uid: userProfile.id },
+      where: { user: {id: userProfile.id} },
       include: { skill: true },
     });
 
     const desirePositions = await prisma.desirePosition.findMany({
-      where: { uid: userProfile.id },
+      where: { user: {id: userProfile.id} }, 
       include: { position: true },
     });
 
@@ -86,7 +86,7 @@ export const resumeService = {
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.profileId !== userProfile.id) {
+    if (!resume || resume.userId !== userProfile.id) {
       throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
     }
 
@@ -100,10 +100,22 @@ export const resumeService = {
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.profileId !== userProfile.id) {
+    if (!resume || resume.userId !== userProfile.id) {
       throw new Error("삭제 권한이 없거나 이력서를 찾을 수 없습니다.");
     }
 
     return resumeRepository.deleteResume(resumeId);
+  },
+
+  getAllResumes: async () => {
+    return resumeRepository.getAllPublicResumes();
+  },
+
+  getPublicResumesByTitleSearch: async (searchTerm?: string) => {
+    if (!searchTerm) {
+      return []; // 검색어 없으면 빈 배열 반환하거나 전체 반환하도록 변경 가능
+    }
+
+    return resumeRepository.getPublicResumesByTitleSearch(searchTerm);
   },
 };

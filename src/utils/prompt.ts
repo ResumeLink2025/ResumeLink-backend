@@ -1,10 +1,13 @@
-import { ResumeRequestBody } from "../../types/resume";
+import { ResumeRequestBody, AiProjectInfo } from "../../types/resume";
+
+
 
 export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
   name: string;
   position: string;      // 쉼표로 이어진 포지션 리스트
   skills: string[];      // 기술 스택 배열
   summary: string;
+  projects: AiProjectInfo[]; // 프로젝트 정보 배열
 }) {
   const {
     name,
@@ -24,7 +27,7 @@ export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
 아래 사용자의 입력 데이터를 기반으로, 이력서 내용을 각 항목별로 자연스럽고 전문적인 문장으로 구성해서 JSON 형태로 반환해줘. 설명이나 마크다운 없이 **JSON 객체만 출력**해.
 또한, **개발자 카테고리**의 단어들이 강조되게 전체 이력서를 수정해줘.
 특히, 아래의 **개발 관련 경험 텍스트**는 자유 형식으로 입력된 내용이야. 이 내용을 보고 너의 판단 하에 가장 적절하게 다음 항목들로 **적절히 나눠서 배치해줘**:
-날짜 필드는 모두 ISO 8601 형식(예: 2024-03-15 또는 2024-03)으로 작성하세요.
+날짜 필드는 모두 ISO 8601 형식(예: 2024-03-15)으로 작성하세요.
 
 - summary (자기소개)
 - projects
@@ -39,12 +42,11 @@ export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
   "name": string,
   "position": string[],
   "summary": string,
-  "description": string,
   "categories": string[],
   "skills": string[],
-  "projects": [{ "title": string, "description": string }],
+  "projects": [{ "title": string, "description": string, "role": string, "startDate": string, "endDate": string | null, "generalSkills": string[], "customSkills": string[] }],
   "activities": [{ "title": string, "startDate": string, "endDate": string, "description": string }],
-  "certificates": [{ "name": string, "issueDate": string, "score": string, "organization": string }]
+  "certificates": [{ "name": string, "date": string, "grade": string, "issuer": string }]
 }
 
 입력 정보:
@@ -59,7 +61,10 @@ export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
 ${experienceNote}
 
 - 프로젝트:
-${projects.map(p => `  • ${p.name}: ${p.description}`).join("\n")}
+${projects.map(p => `  • ${p.projectName} (${p.startDate} ~ ${p.endDate ?? "현재"}): 역할 - ${p.role}
+    설명: ${p.projectDesc ?? "없음"}
+    일반 스킬: ${p.generalSkills.join(", ")}
+    커스텀 스킬: ${p.customSkills.join(", ")}`).join("\n")}
 
 - 활동:
 ${activities.map(a => `  • ${a.title} (${a.startDate} ~ ${a.endDate}): ${a.description ?? ""}`).join("\n")}

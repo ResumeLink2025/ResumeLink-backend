@@ -1,3 +1,13 @@
+interface AiProjectInfo {
+  projectName: string;
+  projectDesc?: string;
+  startDate: string;
+  endDate?: string | null;
+  role: string;
+  generalSkills: string[];
+  customSkills: string[];
+}
+
 export interface ResumeRequestBody {
   title: string;            // 이력서 제목
   summary?: string;         // UserProfile에서 불러오되 편집 가능
@@ -9,15 +19,11 @@ export interface ResumeRequestBody {
   skills: string[];         // 기술 스택 이름들 (UserSkill + customSkill 포함)
   positions: string[];      // 직군 이름들 (DesirePosition + customPosition 포함)
 
-  projects: {
-    name: string;
-    description: string;
-    link?: string;
-  }[];
+  projects: AiprojectInfo[]; // 프로젝트 정보 배열
 
   activities?: {
     title: string;
-    startDate: string;       // "YYYY-MM" 형식 권장
+    startDate: string;       // "YYYY-MM-DD" 형식 권장
     endDate?: string;
     description?: string;
   }[];

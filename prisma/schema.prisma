@@ -7,71 +7,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id       String @id @default(uuid())
-  email    String @unique
-  password String
-  nickname String
-
-  passwordResetTokens PasswordResetToken[]
-}
-
 model UserAuth {
-  id             String         @id @default(uuid()) @db.Uuid
-  email          String         @unique
-  password       String?
-  authProvider   AuthProvider   @default(local)
-  authProviderId String?        @unique
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  refreshTokens  RefreshToken[]
-  profile        UserProfile?   @relation("UserToProfile")
-  userSkills     UserSkill[]       // UserSkill와의 관계
-  desirePositions DesirePosition[] // DesirePosition와의 관계
+  id               String          @id @default(uuid()) @db.Uuid
+  email            String          @unique
+  password         String?
+  authProvider     AuthProvider    @default(local)
+  authProviderId   String?         @unique
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  refreshTokens    RefreshToken[]
 
   @@unique([authProvider, authProviderId])
+  profile          UserProfile?    @relation("UserToProfile")
+  userSkills       UserSkill[]
+  desirePositions  DesirePosition[]
+  Project          Project[]       @relation("UserToProject")
+  Message          Message[]
+  ChatParticipant  ChatParticipant[]
+  Resume           Resume[]        @relation("UserToResume")
+  Favorite         Favorite[]
+  CoffeeReqChat    CoffeeChat[]    @relation("RequestedChats")
+  CoffeeRecChat    CoffeeChat[]    @relation("ReceivedChats")
 }
 
 model UserProfile {
-  id               String            @id @map("id") @db.Uuid
-  nickname         String
-  birthday         DateTime?
-  gender           Gender?
-  customSkill      Json?
-  customInterest   Json?
-  customPosition   Json?
-  experienceYears  Int               @default(0)
-  employmentStatus EmploymentStatus?
-  imageUrl         String?
-  summary          String?           // 자기소개 추가
-  updatedAt        DateTime          @updatedAt
-  user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
-  resumes          Resume[]
-}
+  id                String           @id @db.Uuid @map("id")
+  nickname          String
+  birthday          DateTime         @db.Date
+  gender            Gender?
+  customSkill       Json?
+  customInterest    Json?
+  customPosition    Json?
+  experienceYears   Int              @default(0)
+  employmentStatus  EmploymentStatus?
+  imageUrl          String?
+  summary           String?
+  updatedAt         DateTime         @updatedAt
+  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id], onDelete: Cascade)
 
-model UserSkill {
-  id   String   @id @default(uuid()) @db.Uuid
-  uid  String   @db.Uuid
-  sid  String   @db.Uuid
-
-  user  UserAuth @relation(fields: [uid], references: [id], onDelete: Cascade)
-  skill Skill    @relation(fields: [sid], references: [id], onDelete: Cascade)
-
-  @@unique([uid, sid])
-  @@index([uid])
-  @@index([sid])
+  @@index([id])
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  token     String   @unique
-  createdAt DateTime
-  expiresAt DateTime
-  userAgent String?
-  ipAddress String?
-  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @db.Uuid
+  token      String     @unique
+  createdAt  DateTime
+  expiresAt  DateTime
+  userAgent  String?
+  ipAddress  String?
+  user       UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
 }
 
@@ -92,35 +77,72 @@ enum EmploymentStatus {
   unemployed
 }
 
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+model Category {
+  id      String   @id @default(uuid())
+  name    String   @unique
 }
 
-// 추후 Project 테이블 작성시 참조하도록 수정
+model Skill {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  userSkills  UserSkill[]
+  projectSkills    ProjectSkill[]
+  ResumeSkill ResumeSkill[]
+}
+
+model Position {
+  id        String            @id @default(uuid()) @db.Uuid
+  name      String            @unique
+  desiredBy DesirePosition[]
+  ResumePosition ResumePosition[]
+}
+
+model UserSkill {
+  id      String   @id @default(uuid()) @db.Uuid
+  userId  String   @db.Uuid
+  skillId Int
+
+  user  UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+}
+
+model DesirePosition {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  user      UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String     @db.Uuid
+  position  Position   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
+}
+
 model Resume {
-  id             String       @id @default(uuid())
-  profile        UserProfile  @relation(fields: [profileId], references: [id])
-  profileId      String       @db.Uuid
+  id             String              @id @default(uuid()) @db.Uuid
+  userId         String              @db.Uuid
+  user           UserAuth            @relation("UserToResume", fields: [userId], references: [id], onDelete: Cascade)
   title          String
   summary        String?
   experienceNote String?
-  theme          Theme        @default(light)
-  isPublic       Boolean      @default(false)
-  positions      Position[]   @relation("ResumePositions")
-  categories     Category[]   @relation("ResumeCategories")
-  skills         Skill[]      @relation("ResumeSkills")
+  theme          Theme               @default(light)
+  isPublic       Boolean             @default(false)
+  positions      ResumePosition[]    @relation("ResumeToPosition")
+  skills         ResumeSkill[]       @relation("ResumeToSkill")
+  categories     String[]
   activities     DevelopmentActivity[]
   certificates   Certificate[]
-  projects       Project[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  projects       ProjectResume[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
 enum Theme {
@@ -128,64 +150,208 @@ enum Theme {
   dark
 }
 
-model Skill {
-  id         String       @id @default(uuid()) @db.Uuid
-  name       String       @unique
-  userSkills UserSkill[]
-  resumes    Resume[]     @relation("ResumeSkills") // 관계 이름도 함께 변경
+model ResumePosition {
+  id         String     @id @default(uuid())
+  resumeId   String     @db.Uuid
+  positionId String     @db.Uuid
+
+  resume     Resume     @relation("ResumeToPosition", fields: [resumeId], references: [id], onDelete: Cascade)
+  position   Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, positionId])
+  @@index([resumeId])
+  @@index([positionId])
+}
+
+model ResumeSkill {
+  id        String   @id @default(uuid())
+  resumeId  String   @db.Uuid
+  skillId   Int
+
+  resume    Resume   @relation("ResumeToSkill", fields: [resumeId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, skillId])
+  @@index([resumeId])
+  @@index([skillId])
 }
 
 model DevelopmentActivity {
   id          String    @id @default(uuid())
   resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  resumeId    String
+  resumeId    String    @db.Uuid
   title       String
-  startDate   DateTime
-  endDate     DateTime?
+  startDate   DateTime         @db.Date
+  endDate     DateTime?        @db.Date
   description String?
 }
 
 model Certificate {
   id       String    @id @default(uuid())
-  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  resumeId String
+  resumeId String    @db.Uuid
+  resume   Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   name     String
-  date     DateTime?
+  date     DateTime? @db.Date
   grade    String?
-  issuer   String? // 발급기관
+  issuer   String?
+}
+
+model ProjectResume {
+  id              String         @id @default(uuid())
+  projectId       String         @db.Uuid
+  project         Project        @relation(fields: [projectId], references: [id])
+  resumeId        String         @db.Uuid
+  resume          Resume         @relation(fields: [resumeId], references: [id])
+  aiDescription   String
+
+  @@unique([resumeId, projectId])
 }
 
 model Project {
-  id          String  @id @default(uuid())
-  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-  resumeId    String
-  name        String
-  link        String?
-  description String
+  id              String         @id @default(uuid()) @db.Uuid
+  projectNumber   Int            @unique @default(autoincrement())
+  projectName     String
+  projectDesc     String?
+  isPublic        Boolean        @default(false)
+  status          ProjectStatus
+  startDate       DateTime       @db.Date
+  endDate         DateTime?      @db.Date
+  role            String
+  userId          String         @db.Uuid
+  user            UserAuth       @relation("UserToProject", fields: [userId], references: [id], onDelete: Cascade)
+  generalSkills   ProjectSkill[]
+  customSkills    String[]
+  tags            String[]
+  favorites       Favorite[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  projectResume   ProjectResume[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
-model Category {
-  id      String   @id @default(uuid())
-  name    String   @unique
-  resumes Resume[] @relation("ResumeCategories")
+model ProjectSkill {
+  id            String         @id @default(uuid())
+  project       Project        @relation(fields: [projectId], references: [id])
+  projectId     String         @db.Uuid
+  skill         Skill          @relation(fields: [skillId], references: [id])
+  skillId       Int
+
+  @@unique([projectId, skillId])
+  @@index([skillId])
 }
 
-model Position {
-  id        String            @id @default(uuid()) @db.Uuid
-  name      String            @unique
-  resumes   Resume[]          @relation("ResumePositions")
-  desiredBy DesirePosition[]
+enum ProjectStatus {
+  COMPLETED
+  IN_PROGRESS
+  ON_HOLD
 }
 
-model DesirePosition {
-  id        String     @id @default(uuid()) @db.Uuid
-  uid       String     @db.Uuid
-  jid       String     @db.Uuid
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String   @db.Uuid
+  user      UserAuth @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String   @db.Uuid
 
-  user      UserAuth   @relation(fields: [uid], references: [id], onDelete: Cascade)
-  position  Position   @relation(fields: [jid], references: [id], onDelete: Cascade)
+  @@unique([userId, projectId])
+}
 
-  @@unique([uid, jid])
-  @@index([uid])
-  @@index([jid])
+enum CoffeeChatStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+}
+
+model CoffeeChat {
+  id          String           @id @default(uuid()) @db.Uuid
+  requesterId String           @db.Uuid
+  receiverId  String           @db.Uuid
+  status      CoffeeChatStatus @default(pending)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  requester   UserAuth         @relation("RequestedChats", fields: [requesterId], references: [id], onDelete: Restrict)
+  receiver    UserAuth         @relation("ReceivedChats", fields: [receiverId], references: [id], onDelete: Restrict)
+
+  chatRoom    ChatRoom?
+
+  @@index([requesterId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([requesterId, receiverId])
+}
+
+model ChatRoom {
+  id           String          @id @default(uuid()) @db.Uuid
+  coffeeChatId String          @unique @db.Uuid
+  status       ChatRoomStatus  @default(active)
+  createdAt    DateTime        @default(now())
+
+  coffeeChat   CoffeeChat      @relation(fields: [coffeeChatId], references: [id])
+  participants ChatParticipant[]
+  messages     Message[]
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+enum ChatRoomStatus {
+  active
+  archived
+}
+
+model ChatParticipant {
+  id                String    @id @default(uuid()) @db.Uuid
+  chatRoomId        String    @db.Uuid
+  userId            String    @db.Uuid
+  lastReadMessageId String?   @db.Uuid
+  joinedAt          DateTime  @default(now())
+  leftAt            DateTime?
+  isVisible         Boolean   @default(true)
+
+  chatRoom        ChatRoom   @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user            UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message?   @relation("LastReadMessage", fields: [lastReadMessageId], references: [id])
+
+  @@unique([chatRoomId, userId])
+  @@index([userId])
+  @@index([chatRoomId])
+  @@index([userId, leftAt])
+  @@index([userId, isVisible])
+}
+
+model Message {
+  id          String      @id @default(uuid()) @db.Uuid
+  chatRoomId  String      @db.Uuid
+  senderId    String      @db.Uuid
+  text        String?
+  fileUrl     String?
+  fileName    String?
+  fileSize    Int?
+  messageType MessageType @default(TEXT)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isEdited    Boolean     @default(false)
+  isDeleted   Boolean     @default(false)
+
+  chatRoom                ChatRoom          @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender                  UserAuth          @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  lastReadByParticipants  ChatParticipant[] @relation("LastReadMessage")
+
+  @@index([chatRoomId, createdAt])
+  @@index([chatRoomId, isDeleted, createdAt])
+  @@index([senderId])
+  @@index([isDeleted])
+  @@index([chatRoomId, isDeleted])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
 }
