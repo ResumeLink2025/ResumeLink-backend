@@ -3,6 +3,8 @@ import cors from "cors";
 import path from "path";
 import { Server } from 'socket.io';
 import createMainRouter from './routers';  // 팩토리 함수로 변경
+import authRouter from './routers/auth.router';
+import resumeRouter from './routers/resume.router';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
@@ -18,24 +20,19 @@ export default function createApp(io?: Server) {
   }));
   app.use(express.json());
   app.use(cookieParser());
-
-  // 업로드된 파일에 대한 정적 파일 서빙
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Socket.IO 인스턴스를 라우터에 전달
   app.use('/api', createMainRouter(io));
 
+  app.use('/api/auth', authRouter);
+  app.use('/api/resumes', resumeRouter);
+
   app.set("port", process.env.PORT || 3000);
 
-  // 간단 테스트 엔드포인트
-  app.get("/", (req, res) => {
-    res.send("Hello World!");
-  });
-  // 테스트를 위한 간단한 새 엔드포인트 추가 (미사용 변수/경로 확인용)
-  app.get('/test-route2', (req, res) => {
-    const unusedVariable = "이 변수는 사용되지 않습니다."; // 의도적으로 사용되지 않는 변수
-    res.send(`This is a test endpoint. ${unusedVariable}`);
-  });
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
 
   return app;
 }

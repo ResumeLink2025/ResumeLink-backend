@@ -7,15 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
-  password String
-  nickname String
-
-  passwordResetTokens PasswordResetToken[] 
-}
-
 model UserAuth {
   id               String          @id @default(uuid()) @db.Uuid
   email            String          @unique
@@ -33,33 +24,38 @@ model UserAuth {
   Message         Message[]
 
   @@unique([authProvider, authProviderId])
+  userSkills       UserSkill[]
+  desirePositions  DesirePosition[]
+  Project          Project[]       @relation("UserToProject")
+  Resume           Resume[]        @relation("UserToResume")
+  Favorite         Favorite[]
 }
 
 model UserProfile {
-  id               String            @id @db.Uuid @map("id")
-  nickname         String
-  birthday         DateTime?
-  gender           Gender?
-  customSkill      Json?
-  customInterest   Json?
-  customPosition   Json?
-  experienceYears  Int               @default(0)
-  employmentStatus EmploymentStatus?
-  imageUrl         String?
-  updatedAt        DateTime          @updatedAt
-  user             UserAuth          @relation("UserToProfile", fields: [id], references: [id])
+  id                String           @id @db.Uuid @map("id")
+  nickname          String
+  birthday          DateTime         @db.Date
+  gender            Gender?
+  customSkill       Json?
+  customInterest    Json?
+  customPosition    Json?
+  experienceYears   Int              @default(0)
+  employmentStatus  EmploymentStatus?
+  imageUrl          String?
+  summary           String?
+  updatedAt         DateTime         @updatedAt
+  user              UserAuth         @relation("UserToProfile", fields: [id], references: [id])
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  token     String   @unique
-  createdAt DateTime
-  expiresAt DateTime
-  userAgent String?
-  ipAddress String?
-  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @db.Uuid
+  token      String     @unique
+  createdAt  DateTime
+  expiresAt  DateTime
+  userAgent  String?
+  ipAddress  String?
+  user       UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
 }
 
@@ -80,15 +76,186 @@ enum EmploymentStatus {
   unemployed
 }
 
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
+model Category {
+  id      String   @id @default(uuid())
+  name    String   @unique
+}
 
-  user User @relation(fields: [userId], references: [id])
+model Skill {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  userSkills  UserSkill[]
+  projectSkills    ProjectSkill[]
+  ResumeSkill ResumeSkill[]
+}
+
+model Position {
+  id        String            @id @default(uuid()) @db.Uuid
+  name      String            @unique
+  desiredBy DesirePosition[]
+  ResumePosition ResumePosition[]
+}
+
+model UserSkill {
+  id      String   @id @default(uuid()) @db.Uuid
+  userId  String   @db.Uuid
+  skillId Int
+
+  user  UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+}
+
+model DesirePosition {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  user      UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String     @db.Uuid
+  position  Position   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
+}
+
+model Resume {
+  id             String              @id @default(uuid()) @db.Uuid
+  userId         String              @db.Uuid
+  user           UserAuth            @relation("UserToResume", fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  summary        String?
+  experienceNote String?
+  theme          Theme               @default(light)
+  isPublic       Boolean             @default(false)
+  positions      ResumePosition[]    @relation("ResumeToPosition")
+  skills         ResumeSkill[]       @relation("ResumeToSkill")
+  categories     String[]
+  activities     DevelopmentActivity[]
+  certificates   Certificate[]
+  projects       ProjectResume[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+enum Theme {
+  light
+  dark
+}
+
+model ResumePosition {
+  id         String     @id @default(uuid())
+  resumeId   String     @db.Uuid
+  positionId String     @db.Uuid
+
+  resume     Resume     @relation("ResumeToPosition", fields: [resumeId], references: [id], onDelete: Cascade)
+  position   Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, positionId])
+  @@index([resumeId])
+  @@index([positionId])
+}
+
+model ResumeSkill {
+  id        String   @id @default(uuid())
+  resumeId  String   @db.Uuid
+  skillId   Int
+
+  resume    Resume   @relation("ResumeToSkill", fields: [resumeId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, skillId])
+  @@index([resumeId])
+  @@index([skillId])
+}
+
+model DevelopmentActivity {
+  id          String    @id @default(uuid())
+  resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  resumeId    String    @db.Uuid
+  title       String
+  startDate   DateTime         @db.Date
+  endDate     DateTime?        @db.Date
+  description String?
+}
+
+model Certificate {
+  id       String    @id @default(uuid())
+  resumeId String    @db.Uuid
+  resume   Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  name     String
+  date     DateTime? @db.Date
+  grade    String?
+  issuer   String?
+}
+
+model ProjectResume {
+  id              String         @id @default(uuid())
+  projectId       String         @db.Uuid
+  project         Project        @relation(fields: [projectId], references: [id])
+  resumeId        String         @db.Uuid
+  resume          Resume         @relation(fields: [resumeId], references: [id])
+  aiDescription   String
+
+  @@unique([resumeId, projectId])
+}
+
+model Project {
+  id              String         @id @default(uuid()) @db.Uuid
+  projectNumber   Int            @unique @default(autoincrement())
+  projectName     String
+  projectDesc     String?
+  isPublic        Boolean        @default(false)
+  status          ProjectStatus
+  startDate       DateTime       @db.Date
+  endDate         DateTime?      @db.Date
+  role            String
+  userId          String         @db.Uuid
+  user            UserAuth       @relation("UserToProject", fields: [userId], references: [id], onDelete: Cascade)
+  generalSkills   ProjectSkill[]
+  customSkills    String[]
+  tags            String[]
+  favorites       Favorite[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  projectResume   ProjectResume[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model ProjectSkill {
+  id            String         @id @default(uuid())
+  project       Project        @relation(fields: [projectId], references: [id])
+  projectId     String         @db.Uuid
+  skill         Skill          @relation(fields: [skillId], references: [id])
+  skillId       Int
+
+  @@unique([projectId, skillId])
+  @@index([skillId])
+}
+
+enum ProjectStatus {
+  COMPLETED
+  IN_PROGRESS
+  ON_HOLD
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String   @db.Uuid
+  user      UserAuth @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String   @db.Uuid
+
+  @@unique([userId, projectId])
 }
 
 enum CoffeeChatStatus {
@@ -106,10 +273,10 @@ model CoffeeChat {
   createdAt   DateTime         @default(now())
   respondedAt DateTime?
 
-  requester UserAuth @relation("RequestedChats", fields: [requesterId], references: [id], onDelete: Restrict)
-  receiver  UserAuth @relation("ReceivedChats", fields: [receiverId], references: [id], onDelete: Restrict)
+  requester   UserAuth         @relation("RequestedChats", fields: [requesterId], references: [id], onDelete: Restrict)
+  receiver    UserAuth         @relation("ReceivedChats", fields: [receiverId], references: [id], onDelete: Restrict)
 
-  chatRoom ChatRoom?
+  chatRoom    ChatRoom?
 
   @@index([requesterId])
   @@index([receiverId])
@@ -123,12 +290,17 @@ model ChatRoom {
   status       ChatRoomStatus  @default(active)
   createdAt    DateTime        @default(now())
 
-  coffeeChat   CoffeeChat @relation(fields: [coffeeChatId], references: [id])
+  coffeeChat   CoffeeChat      @relation(fields: [coffeeChatId], references: [id])
   participants ChatParticipant[]
   messages     Message[]
 
   @@index([createdAt])
   @@index([status])
+}
+
+enum ChatRoomStatus {
+  active
+  archived
 }
 
 model ChatParticipant {
@@ -140,9 +312,9 @@ model ChatParticipant {
   leftAt            DateTime?
   isVisible         Boolean   @default(true)
 
-  chatRoom        ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  user            UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lastReadMessage Message? @relation("LastReadMessage", fields: [lastReadMessageId], references: [id])
+  chatRoom        ChatRoom   @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  user            UserAuth   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message?   @relation("LastReadMessage", fields: [lastReadMessageId], references: [id])
 
   @@unique([chatRoomId, userId])
   @@index([userId])
@@ -174,11 +346,6 @@ model Message {
   @@index([senderId])
   @@index([isDeleted])
   @@index([chatRoomId, isDeleted])
-}
-
-enum ChatRoomStatus {
-  active
-  archived
 }
 
 enum MessageType {
