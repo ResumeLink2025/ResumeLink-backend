@@ -11,8 +11,18 @@ interface KakaoTokenResponse {
   refresh_token_expires_in: number;
 }
 
+interface KakaoUserInfo {
+  id: number | string;
+  kakao_account?: {
+    email?: string;
+  };
+  properties?: {
+    nickname?: string;
+  };
+}
+
 // auth code -> refresh token
-export async function getKakaoTokens(code: string) {
+export async function getKakaoTokens(code: string):Promise<KakaoTokenResponse> {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: process.env.KAKAO_CLIENT_ID!,
@@ -25,7 +35,7 @@ export async function getKakaoTokens(code: string) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
 
-  return res.data;
+  return res.data as KakaoTokenResponse;
 }
 
 // refresh token -> access token
@@ -43,7 +53,7 @@ export async function refreshKakaoAccessToken(refreshToken: string) {
   return res.data;
 }
 
-export async function getKakaoUserInfo(accessToken: string) {
+export async function getKakaoUserInfo(accessToken: string):Promise<KakaoUserInfo> {
   const { data } = await axios.get('https://kapi.kakao.com/v2/user/me', {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -51,7 +61,7 @@ export async function getKakaoUserInfo(accessToken: string) {
     },
   });
 
-  return data;
+  return data as KakaoUserInfo;
 }
 
 
@@ -64,7 +74,7 @@ export async function verifyKakaoRefreshToken(refreshToken: string): Promise<boo
       refresh_token: refreshToken,
     });
 
-    const response = await axios.post('https://kauth.kakao.com/oauth/token', params.toString(), {
+    const response = await axios.post<KakaoTokenResponse>('https://kauth.kakao.com/oauth/token', params.toString(), {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },

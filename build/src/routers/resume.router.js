@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const resume_controller_1 = require("../controllers/resume.controller");
+const middleware_auth_1 = require("../middlewares/middleware.auth");
+const router = (0, express_1.Router)();
+router.get("/search", resume_controller_1.resumeController.getPublicResumesByTitleSearch);
+router.get("/all", resume_controller_1.resumeController.getAllPublic);
+router.post("/", middleware_auth_1.authMiddleware, resume_controller_1.resumeController.create);
+router.get("/", middleware_auth_1.authMiddleware, resume_controller_1.resumeController.getAllByUser);
+router.get("/:id", middleware_auth_1.authMiddleware, resume_controller_1.resumeController.getById);
+router.patch("/:id", middleware_auth_1.authMiddleware, resume_controller_1.resumeController.update);
+router.delete("/:id", middleware_auth_1.authMiddleware, resume_controller_1.resumeController.delete);
+exports.default = router;

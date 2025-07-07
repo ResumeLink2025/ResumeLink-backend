@@ -59,6 +59,12 @@ export class AuthService {
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
 
+    console.log({
+      accessToken,
+      refreshToken
+    })
+
+
     const data = await getGoogleUserInfo(accessToken)
     if (!data.id) throw new Error("액세스 토큰이 잘못되었습니다.");
     let user = await this.authRepository.findByAuthProviderId('google', data.id);

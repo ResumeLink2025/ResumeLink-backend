@@ -1,4 +1,4 @@
-import { User, PasswordResetToken, UserAuth, AuthProvider, RefreshToken } from '@prisma/client';
+import { UserAuth, AuthProvider, RefreshToken } from '@prisma/client';
 import prisma from '../lib/prisma';
 
 
@@ -29,6 +29,7 @@ export class AuthRepository {
         profile: {
           create: {
             nickname: nickname,
+            birthday: new Date('2000-01-01')
           },
         },
       },
@@ -48,6 +49,7 @@ export class AuthRepository {
         profile: {
           create: {
             nickname: name ?? '',
+            birthday: new Date('2000-01-01'),
           },
         },
       },
@@ -96,7 +98,6 @@ export class AuthRepository {
     }
   }
 
-
   async findRefreshToken(token: string){
     return prisma.refreshToken.findUnique({
       where: { token },
@@ -104,19 +105,19 @@ export class AuthRepository {
 
   }
 
-  async createPasswordResetToken(
-    userId: string,
-    token: string,
-    expiresAt: Date
-  ): Promise<PasswordResetToken> {
-    return prisma.passwordResetToken.create({
-      data: {
-        userId,
-        token,
-        expiresAt,
-      },
-    });
-  }
+  // async createPasswordResetToken(
+  //   userId: string,
+  //   token: string,
+  //   expiresAt: Date
+  // ): Promise<PasswordResetToken> {
+  //   return prisma.passwordResetToken.create({
+  //     data: {
+  //       userId,
+  //       token,
+  //       expiresAt,
+  //     },
+  //   });
+  // }
 
 /* 나중에 필요해지면 추가
   // PasswordResetToken 조회

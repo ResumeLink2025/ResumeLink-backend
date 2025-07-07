@@ -17,6 +17,7 @@ interface GoogleUserInfo {
 
 interface TokenResponse {
   access_token: string;
+  refresh_token: string;
   expires_in: number;
   scope: string;
   token_type: string;
@@ -24,7 +25,7 @@ interface TokenResponse {
 }
 
 // auth code -> token
-export async function getGoogleTokens(code: string) {
+export async function getGoogleTokens(code: string):Promise<TokenResponse> {
   const payload = {
     code,
     client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -39,12 +40,12 @@ export async function getGoogleTokens(code: string) {
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
   );
 
-  return response.data;
+  return response.data as TokenResponse;;
 }
 
 // 액세스 토큰 -> 사용자 정보 추출
 export async function getGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {
-  const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+  const response = await axios.get<GoogleUserInfo>('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
