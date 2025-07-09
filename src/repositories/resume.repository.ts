@@ -28,6 +28,49 @@ export const resumeRepository = {
       )
     );
 
+    // activities 매핑 함수
+    const mapActivity = (act: {
+      title: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      if (!act.startDate || act.startDate.trim() === "") {
+        throw new Error("startDate는 필수입니다.");
+      }
+      return {
+        title: act.title,
+        description: act.description ?? "",
+        startDate: new Date(act.startDate),
+        endDate: act.endDate && act.endDate.trim() !== "" ? new Date(act.endDate) : undefined,
+      };
+    };
+
+    // certificates 매핑 함수
+    const mapCertificate = (cert: {
+      name: string;
+      date?: string;
+      grade?: string;
+      issuer?: string;
+    }) => {
+      const certData: {
+        name: string;
+        date?: Date;
+        grade: string;
+        issuer: string;
+      } = {
+        name: cert.name,
+        grade: cert.grade ?? "",
+        issuer: cert.issuer ?? "",
+      };
+
+      if (cert.date && cert.date.trim() !== "") {
+        certData.date = new Date(cert.date);
+      }
+
+      return certData;
+    };
+
     // Resume 생성
     return prisma.resume.create({
       data: {
@@ -47,29 +90,19 @@ export const resumeRepository = {
           create: positionRecords.map((pos) => ({ positionId: pos.id })),
         },
 
-        // projects는 connect → create로 변경
         projects: {
-          create: (data.projects ?? []).map((proj: any) => ({
-            project: { connect: { id: proj.id } }, // proj.id: Project UUID 필수
-            aiDescription: proj.aiDescription ?? "",
+          create: data.projects.map((proj) => ({
+            project: { connect: { id: proj.id } },
+            aiDescription: proj.projectDesc ?? "",
           })),
         },
 
         activities: {
-        create: (data.activities ?? []).map((act: any) => ({
-          ...act,
-          startDate: act.startDate && act.startDate.trim() !== "" ? new Date(act.startDate) : undefined,
-          endDate: act.endDate && act.endDate.trim() !== "" ? new Date(act.endDate) : undefined,
-        })),
-      },
+          create: (data.activities ?? []).map(mapActivity),
+        },
 
         certificates: {
-          create: (data.certificates ?? []).map((cert) => ({
-            name: cert.name,
-            date: cert.date ? new Date(cert.date) : undefined,
-            grade: cert.grade,
-            issuer: cert.issuer,
-          })),
+          create: (data.certificates ?? []).map(mapCertificate),
         },
       },
       include: {
