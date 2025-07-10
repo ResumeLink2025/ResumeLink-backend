@@ -1,22 +1,24 @@
 import { ResumeRequestBody, AiProjectInfo } from "../../types/resume";
 
-
-
 export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
   name: string;
-  position: string;      // 쉼표로 이어진 포지션 리스트
-  skills: string[];      // 기술 스택 배열
+  positions: string[];
+  skills: string[];
   summary: string;
-  projects: AiProjectInfo[]; // 프로젝트 정보 배열
+  projects: AiProjectInfo[];
+  activities: any[];
+  certificates: any[];
+  experienceNote?: string;
+  categories?: string[];
 }) {
   const {
     name,
-    position,
+    positions = [],
     summary,
     experienceNote = "",
-    categories,
-    skills,
-    projects,
+    categories = [],
+    skills = [],
+    projects = [],
     activities = [],
     certificates = [],
   } = data;
@@ -40,18 +42,18 @@ export function buildNarrativeJsonPrompt(data: ResumeRequestBody & {
 출력 스키마:
 {
   "name": string,
-  "position": string[],
+  "positions": string[],
   "summary": string,
   "categories": string[],
   "skills": string[],
-  "projects": [{ "title": string, "description": string, "role": string, "startDate": string, "endDate": string | null, "generalSkills": string[], "customSkills": string[] }],
+  "projects": [{ "id": string, "title": string, "description": string, "role": string, "startDate": string, "endDate": string | null, "generalSkills": string[], "customSkills": string[] }],
   "activities": [{ "title": string, "startDate": string, "endDate": string, "description": string }],
   "certificates": [{ "name": string, "date": string, "grade": string, "issuer": string }]
 }
 
 입력 정보:
 - 이름: ${name}
-- 희망 직무: ${position}
+- 희망 직무: ${positions.join(", ")}
 - 한줄 요약: ${summary}
 
 - 개발자 카테고리: ${categories.join(", ")}
@@ -64,7 +66,8 @@ ${experienceNote}
 ${projects.map(p => `  • ${p.projectName} (${p.startDate} ~ ${p.endDate ?? "현재"}): 역할 - ${p.role}
     설명: ${p.projectDesc ?? "없음"}
     일반 스킬: ${p.generalSkills.join(", ")}
-    커스텀 스킬: ${p.customSkills.join(", ")}`).join("\n")}
+    커스텀 스킬: ${p.customSkills.join(", ")}
+    id: ${p.id}`).join("\n")}
 
 - 활동:
 ${activities.map(a => `  • ${a.title} (${a.startDate} ~ ${a.endDate}): ${a.description ?? ""}`).join("\n")}
