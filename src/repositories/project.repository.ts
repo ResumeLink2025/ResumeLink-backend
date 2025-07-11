@@ -162,6 +162,7 @@ export class ProjectRepository {
   async findProjects(
     userId: string, 
     query: {
+        ownerId?: string;
         skill?: string[];
         tag?: string[];
         desc?: string;
@@ -171,6 +172,11 @@ export class ProjectRepository {
     }
     ) {
     const where: any = {};
+
+
+    if (query.ownerId) {
+      where.userId = query.ownerId;
+    }
 
     if (query.skill && query.skill.length > 0) {
       where.projectSkills = {
@@ -204,16 +210,19 @@ export class ProjectRepository {
         })
     }
 
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+
     // 비공개는 본인만
     where.OR = [
       { isPublic: true },
-      { uid: userId },
+      { userId },
     ];
 
     return prisma.project.findMany({
       where,
-      skip: (query.page! - 1) * query.limit!,
-      take: query.limit,
+      skip: (page - 1) * limit,
+      take: limit,
       select: {
         id: true,
         projectName: true,

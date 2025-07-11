@@ -90,15 +90,11 @@ class ProjectService {
                 error.status = 403;
                 throw error;
             }
-            const { generalSkills, customSkills } = project, rest = __rest(project, ["generalSkills", "customSkills"]);
-            const generalSkillsNames = project.generalSkills.map((gs) => gs.skill.name);
-            const result = Object.assign(Object.assign({}, rest), { skill: {
-                    generalSkills: generalSkillsNames,
-                    customSkills
-                } });
+            const result = transformProjectToDto(project);
             return result;
         });
     }
+    ;
     // 4. 삭제
     deleteProject(userId, projectNumber) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -192,3 +188,11 @@ class ProjectService {
     }
 }
 exports.ProjectService = ProjectService;
+function transformProjectToDto(project) {
+    const { generalSkills, customSkills, projectDesc, startDate, endDate } = project, rest = __rest(project, ["generalSkills", "customSkills", "projectDesc", "startDate", "endDate"]);
+    const generalSkillsNames = generalSkills.map((gs) => gs.skill.name);
+    return Object.assign(Object.assign({}, rest), { projectDesc: projectDesc !== null && projectDesc !== void 0 ? projectDesc : '', startDate: startDate.toISOString(), endDate: endDate ? endDate.toISOString() : startDate.toISOString(), skill: {
+            generalSkills: generalSkillsNames,
+            customSkills: customSkills,
+        } });
+}

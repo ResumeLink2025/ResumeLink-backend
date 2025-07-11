@@ -138,7 +138,11 @@ class ProjectRepository {
     // 전체 목록 (필터)
     findProjects(userId, query) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             const where = {};
+            if (query.ownerId) {
+                where.userId = query.ownerId;
+            }
             if (query.skill && query.skill.length > 0) {
                 where.projectSkills = {
                     some: {
@@ -167,15 +171,17 @@ class ProjectRepository {
                     ]
                 });
             }
+            const page = (_a = query.page) !== null && _a !== void 0 ? _a : 1;
+            const limit = (_b = query.limit) !== null && _b !== void 0 ? _b : 10;
             // 비공개는 본인만
             where.OR = [
                 { isPublic: true },
-                { uid: userId },
+                { userId },
             ];
             return prisma_1.default.project.findMany({
                 where,
-                skip: (query.page - 1) * query.limit,
-                take: query.limit,
+                skip: (page - 1) * limit,
+                take: limit,
                 select: {
                     id: true,
                     projectName: true,

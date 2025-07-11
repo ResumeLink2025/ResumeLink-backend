@@ -44,3 +44,20 @@ export class CreateProjectDto {
 }
 
 export class UpdateProjectDto extends CreateProjectDto {}
+
+export interface ProjectDetailDto {
+  id: string;
+  projectNumber: number;
+  projectName: string;
+  projectDesc: string;
+  isPublic: boolean;
+  status: string; // enum 그대로 export해도 됨
+  startDate: string;
+  endDate: string;
+  role: string;
+  skill: {
+    generalSkills: string[];
+    customSkills: string[];
+  };
+  tags: string[];
+}

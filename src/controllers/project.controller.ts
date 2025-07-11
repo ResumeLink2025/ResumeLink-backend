@@ -55,6 +55,7 @@ export class ProjectController {
       return res.status(error.status || 400).json({ message: error.message });
     }
   }
+  
 
   // 삭제
   async deleteProject(req: Request, res: Response) {
@@ -111,6 +112,28 @@ export class ProjectController {
       return res.status(400).json({ message: error.message });
     }
   }
+
+  // 내 전체 목록
+  async getMyProjects(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId as string;
+      const query = req.query;
+
+      const myQuery = {
+        ...query,
+        ownerId: userId,
+      };
+
+      const projects = await this.projectService.getProjects(userId, myQuery);
+
+      return res.status(200).json({ data: projects });
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
+
+  
 
   // 좋아요
   async favoriteProject(req: Request, res: Response) {

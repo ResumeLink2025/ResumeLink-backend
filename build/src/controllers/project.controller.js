@@ -129,6 +129,22 @@ class ProjectController {
             }
         });
     }
+    // 내 전체 목록
+    getMyProjects(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
+                const query = req.query;
+                const myQuery = Object.assign(Object.assign({}, query), { ownerId: userId });
+                const projects = yield this.projectService.getProjects(userId, myQuery);
+                return res.status(200).json({ data: projects });
+            }
+            catch (error) {
+                return res.status(400).json({ message: error.message });
+            }
+        });
+    }
     // 좋아요
     favoriteProject(req, res) {
         return __awaiter(this, void 0, void 0, function* () {

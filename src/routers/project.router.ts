@@ -28,7 +28,7 @@ router.put(
 );
 
 // 개별 프로젝트 보기
-router.patch(
+router.get(
   '/:id',
   authMiddleware,
   async (req: Request, res: Response) => {
@@ -64,11 +64,20 @@ router.get(
 );
 
 // 프로젝트 목록
-router.get(
+router.patch(
   '/',
   authMiddleware,
   async (req: Request, res: Response) => {
     await projectController.getProjects(req, res);
+  }
+);
+
+// 내 프로젝트 목록
+router.get(
+  '/',
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    await projectController.getMyProjects(req, res);
   }
 );
 

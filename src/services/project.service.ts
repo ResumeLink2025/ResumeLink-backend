@@ -1,7 +1,7 @@
-import { CreateProjectDto, UpdateProjectDto } from '../dtos/project.dto';
+import { CreateProjectDto, ProjectDetailDto, UpdateProjectDto } from '../dtos/project.dto';
 import { ProjectRepository } from '../repositories/project.repository';
 import { plainToInstance } from 'class-transformer';
-import { Project, ProjectStatus } from '@prisma/client';
+import { Project, ProjectSkill, ProjectStatus } from '@prisma/client';
 
 interface SkillForm {
   generalSkills: String[],
@@ -80,7 +80,7 @@ export class ProjectService {
   }
 
   // 3. 개별 프로젝트 보기
-  async getProject(userId: string, projectNumber: number) {
+  async getProject(userId: string, projectNumber: number): Promise<ProjectDetailDto> {
 
     if (!projectNumber) throw new Error('프로젝트를 찾을 수 없습니다.');
     const projectId = await this.projectRepository.findNumberToID(projectNumber);
@@ -94,18 +94,11 @@ export class ProjectService {
       throw error;
     }
     
-    const { generalSkills, customSkills, ...rest } = project;
-    const generalSkillsNames = project.generalSkills.map((gs) => gs.skill.name);
-    const result = {
-      ...rest,
-      skill: {
-        generalSkills: generalSkillsNames,
-        customSkills
-      },
-    };
+    const result = transformProjectToDto(project) 
   
-    return result;
-  }
+    return result
+      
+    };
 
   // 4. 삭제
   async deleteProject(userId: string, projectNumber: number) {
@@ -186,4 +179,38 @@ export class ProjectService {
     const favorite = await this.projectRepository.toggleFavorite(userId, projectId, false);
     return favorite ? '프로젝트에 좋아요를 취소했습니다.' : '이미 좋아요가 취소된 프로젝트입니다.';
   }
+}
+
+
+type ProjectWithSkills = Project & {
+  generalSkills: (ProjectSkill & {
+    skill: {
+      name: string;
+    };
+  })[];
+  customSkills: string[];
+};
+
+function transformProjectToDto(project: ProjectWithSkills): ProjectDetailDto {
+  const {
+    generalSkills,
+    customSkills,
+    projectDesc,
+    startDate,
+    endDate,
+    ...rest
+  } = project;
+
+  const generalSkillsNames = generalSkills.map((gs) => gs.skill.name);
+
+  return {
+    ...rest,
+    projectDesc: projectDesc ?? '',
+    startDate: startDate.toISOString(),
+    endDate: endDate ? endDate.toISOString() : startDate.toISOString(),
+    skill: {
+      generalSkills: generalSkillsNames,
+      customSkills: customSkills,
+    },
+  };
 }
