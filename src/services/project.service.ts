@@ -98,7 +98,7 @@ export class ProjectService {
   
     return result
       
-    };
+    }
 
   // 4. 삭제
   async deleteProject(userId: string, projectNumber: number) {
