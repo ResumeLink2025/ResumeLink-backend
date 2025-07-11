@@ -64,13 +64,13 @@ router.get(
 );
 
 // 프로젝트 목록
-router.patch(
-  '/',
-  authMiddleware,
-  async (req: Request, res: Response) => {
-    await projectController.getProjects(req, res);
-  }
-);
+// router.get(
+//   '/',
+//   authMiddleware,
+//   async (req: Request, res: Response) => {
+//     await projectController.getProjects(req, res);
+//   }
+// );
 
 // 내 프로젝트 목록
 router.get(
