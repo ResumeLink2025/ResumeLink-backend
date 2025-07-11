@@ -133,8 +133,8 @@ export class ProjectService {
     }
 
     return {
-      general_skills: project.generalSkills,
-      custom_skills: project.customSkills,
+      generalSkills: project.generalSkills,
+      customSkills: project.customSkills,
     };
   }
 
