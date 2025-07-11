@@ -180,7 +180,7 @@ model DevelopmentActivity {
   resume      Resume    @relation(fields: [resumeId], references: [id], onDelete: Cascade)
   resumeId    String    @db.Uuid
   title       String
-  startDate   DateTime         @db.Date
+  startDate   DateTime?         @db.Date
   endDate     DateTime?        @db.Date
   description String?
 }

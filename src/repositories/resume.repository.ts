@@ -8,6 +8,7 @@ export const resumeRepository = {
     experienceNote: string | undefined,
     data: ResumeRequestBody
   ) => {
+    // 포지션 레코드 조회
     const positionRecords: Position[] = await prisma.position.findMany({
       where: {
         name: {
@@ -16,6 +17,7 @@ export const resumeRepository = {
       },
     });
 
+    // 스킬 존재하면 upsert (없으면 생성)
     const skillsRecords: Skill[] = await Promise.all(
       (data.skills ?? []).map((skillName: string) =>
         prisma.skill.upsert({
@@ -26,6 +28,50 @@ export const resumeRepository = {
       )
     );
 
+    // activities 매핑 함수
+    const mapActivity = (act: {
+      title: string;
+      description?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      if (!act.startDate || act.startDate.trim() === "") {
+        throw new Error("startDate는 필수입니다.");
+      }
+      return {
+        title: act.title,
+        description: act.description ?? "",
+        startDate: new Date(act.startDate),
+        endDate: act.endDate && act.endDate.trim() !== "" ? new Date(act.endDate) : undefined,
+      };
+    };
+
+    // certificates 매핑 함수
+    const mapCertificate = (cert: {
+      name: string;
+      date?: string;
+      grade?: string;
+      issuer?: string;
+    }) => {
+      const certData: {
+        name: string;
+        date?: Date;
+        grade: string;
+        issuer: string;
+      } = {
+        name: cert.name,
+        grade: cert.grade ?? "",
+        issuer: cert.issuer ?? "",
+      };
+
+      if (cert.date && cert.date.trim() !== "") {
+        certData.date = new Date(cert.date);
+      }
+
+      return certData;
+    };
+
+    // Resume 생성
     return prisma.resume.create({
       data: {
         userId: profileId,
@@ -41,28 +87,22 @@ export const resumeRepository = {
         },
 
         positions: {
-          connect: positionRecords.map((pos) => ({ id: pos.id })),
+          create: positionRecords.map((pos) => ({ positionId: pos.id })),
         },
 
-        // projects는 projectId, aiDescription 포함된 객체 배열로 받음
         projects: {
-          create: (data.projects ?? []).map((proj: any) => ({
-            projectId: proj.projectId,
-            aiDescription: proj.aiDescription ?? "",
+          create: data.projects.map((proj) => ({
+            project: { connect: { id: proj.id } },
+            aiDescription: proj.projectDesc ?? "",
           })),
         },
 
         activities: {
-          create: data.activities ?? [],
+          create: (data.activities ?? []).map(mapActivity),
         },
 
         certificates: {
-          create: (data.certificates ?? []).map((cert) => ({
-            name: cert.name,
-            date: cert.date ? new Date(cert.date) : undefined,
-            grade: cert.grade,
-            issuer: cert.issuer,
-          })),
+          create: (data.certificates ?? []).map(mapCertificate),
         },
       },
       include: {
@@ -170,7 +210,7 @@ export const resumeRepository = {
               tx.projectResume.create({
                 data: {
                   resumeId,
-                  projectId: proj.projectId,
+                  projectId: proj.id,  // 여기서도 proj.id는 Project UUID
                   aiDescription: proj.aiDescription ?? "",
                 },
               })
