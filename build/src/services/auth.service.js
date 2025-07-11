@@ -28,7 +28,7 @@ class AuthService {
             if (existingEmail)
                 throw new Error('이미 존재하는 이메일입니다.');
             const hashed = yield (0, bcrypt_1.hashPassword)(password);
-            const user = yield this.authRepository.createUser(email, hashed, nickname);
+            const user = yield this.authRepository.createUser(email, hashed, nickname || "username");
             const accessToken = (0, jwt_1.generateAccessToken)({ userId: user.id });
             const refreshToken = (0, jwt_1.generateRefreshToken)({ userId: user.id });
             const response = { userId: user.id, accessToken, refreshToken };

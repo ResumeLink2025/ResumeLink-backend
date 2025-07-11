@@ -12,7 +12,8 @@ export class CreateUserRequsetDto {
 
   @IsString()
   @Length(2, 30)
-  nickname!: string;
+  @IsOptional()
+  nickname?: string;
 }
 
 // 로그인 요청 DTO

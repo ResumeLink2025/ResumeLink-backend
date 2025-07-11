@@ -27,6 +27,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.Length)(2, 30),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateUserRequsetDto.prototype, "nickname", void 0);
 // 로그인 요청 DTO
