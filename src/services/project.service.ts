@@ -98,7 +98,7 @@ export class ProjectService {
   
     return result
       
-    };
+    }
 
   // 4. 삭제
   async deleteProject(userId: string, projectNumber: number) {
@@ -133,8 +133,8 @@ export class ProjectService {
     }
 
     return {
-      general_skills: project.generalSkills,
-      custom_skills: project.customSkills,
+      generalSkills: project.generalSkills,
+      customSkills: project.customSkills,
     };
   }
 
