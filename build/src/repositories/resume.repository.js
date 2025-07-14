@@ -16,7 +16,8 @@ exports.resumeRepository = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 exports.resumeRepository = {
     createResume: (profileId, experienceNote, data) => __awaiter(void 0, void 0, void 0, function* () {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f;
+        // 포지션 레코드 조회
         const positionRecords = yield prisma_1.default.position.findMany({
             where: {
                 name: {
@@ -24,11 +25,39 @@ exports.resumeRepository = {
                 },
             },
         });
+        // 스킬 존재하면 upsert (없으면 생성)
         const skillsRecords = yield Promise.all(((_a = data.skills) !== null && _a !== void 0 ? _a : []).map((skillName) => prisma_1.default.skill.upsert({
             where: { name: skillName },
             create: { name: skillName },
             update: {},
         })));
+        // activities 매핑 함수
+        const mapActivity = (act) => {
+            var _a;
+            if (!act.startDate || act.startDate.trim() === "") {
+                throw new Error("startDate는 필수입니다.");
+            }
+            return {
+                title: act.title,
+                description: (_a = act.description) !== null && _a !== void 0 ? _a : "",
+                startDate: new Date(act.startDate),
+                endDate: act.endDate && act.endDate.trim() !== "" ? new Date(act.endDate) : undefined,
+            };
+        };
+        // certificates 매핑 함수
+        const mapCertificate = (cert) => {
+            var _a, _b;
+            const certData = {
+                name: cert.name,
+                grade: (_a = cert.grade) !== null && _a !== void 0 ? _a : "",
+                issuer: (_b = cert.issuer) !== null && _b !== void 0 ? _b : "",
+            };
+            if (cert.date && cert.date.trim() !== "") {
+                certData.date = new Date(cert.date);
+            }
+            return certData;
+        };
+        // Resume 생성
         return prisma_1.default.resume.create({
             data: {
                 userId: profileId,
@@ -42,28 +71,22 @@ exports.resumeRepository = {
                     create: skillsRecords.map((skill) => ({ skillId: skill.id })),
                 },
                 positions: {
-                    connect: positionRecords.map((pos) => ({ id: pos.id })),
+                    create: positionRecords.map((pos) => ({ positionId: pos.id })),
                 },
-                // projects는 projectId, aiDescription 포함된 객체 배열로 받음
                 projects: {
-                    create: ((_e = data.projects) !== null && _e !== void 0 ? _e : []).map((proj) => {
+                    create: data.projects.map((proj) => {
                         var _a;
                         return ({
-                            projectId: proj.projectId,
-                            aiDescription: (_a = proj.aiDescription) !== null && _a !== void 0 ? _a : "",
+                            project: { connect: { id: proj.id } },
+                            aiDescription: (_a = proj.projectDesc) !== null && _a !== void 0 ? _a : "",
                         });
                     }),
                 },
                 activities: {
-                    create: (_f = data.activities) !== null && _f !== void 0 ? _f : [],
+                    create: ((_e = data.activities) !== null && _e !== void 0 ? _e : []).map(mapActivity),
                 },
                 certificates: {
-                    create: ((_g = data.certificates) !== null && _g !== void 0 ? _g : []).map((cert) => ({
-                        name: cert.name,
-                        date: cert.date ? new Date(cert.date) : undefined,
-                        grade: cert.grade,
-                        issuer: cert.issuer,
-                    })),
+                    create: ((_f = data.certificates) !== null && _f !== void 0 ? _f : []).map(mapCertificate),
                 },
             },
             include: {
@@ -149,7 +172,7 @@ exports.resumeRepository = {
                         return tx.projectResume.create({
                             data: {
                                 resumeId,
-                                projectId: proj.projectId,
+                                projectId: proj.id, // 여기서도 proj.id는 Project UUID
                                 aiDescription: (_a = proj.aiDescription) !== null && _a !== void 0 ? _a : "",
                             },
                         });

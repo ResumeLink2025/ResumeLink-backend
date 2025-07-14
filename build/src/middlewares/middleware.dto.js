@@ -22,7 +22,13 @@ function validateDto(dtoClass, source = 'body') {
             res.status(400).json({ message: '입력값이 잘못되었습니다.', errors: errorMessages });
             return;
         }
-        req[source] = dtoInstance;
+        const keyMap = {
+            body: 'validatedBody',
+            params: 'validatedParams',
+            query: 'validatedQuery',
+        };
+        const validatedKey = keyMap[source];
+        req[validatedKey] = dtoInstance;
         next();
     });
 }

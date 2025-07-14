@@ -9,27 +9,29 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.seedProjectSkills = seedProjectSkills;
 const client_1 = require("@prisma/client");
-const seed_position_1 = require("./seed/seed-position");
-const seed_skill_1 = require("./seed/seed-skill");
-const seed_category_1 = require("./seed/seed-category");
-const seed_project_1 = require("./seed/seed-project");
-const seed_projectSkills_1 = require("./seed/seed-projectSkills");
 const prisma = new client_1.PrismaClient();
-function main() {
+function seedProjectSkills() {
     return __awaiter(this, void 0, void 0, function* () {
-        yield (0, seed_position_1.seedPositions)();
-        yield (0, seed_skill_1.seedSkills)();
-        yield (0, seed_category_1.seedCategories)();
-        yield (0, seed_project_1.seedProjects)();
-        yield (0, seed_projectSkills_1.seedProjectSkills)();
+        yield prisma.projectSkill.createMany({
+            data: [
+                // projectId, skillId는 실제 DB에 맞게 변경 필요
+                {
+                    projectId: "b42617d6-b332-4068-9030-a49a72f0b98c", // ex) 실제 project.id
+                    skillId: 1 // ex) 실제 skill.id
+                },
+                {
+                    projectId: "b42617d6-b332-4068-9030-a49a72f0b98c",
+                    skillId: 2
+                },
+                {
+                    projectId: "ca647b57-b973-4163-9fb4-413e40d68936",
+                    skillId: 3
+                }
+            ],
+            skipDuplicates: true,
+        });
+        console.log('✅ ProjectSkill seed completed.');
     });
 }
-main()
-    .catch(e => {
-    console.error(e);
-    process.exit(1);
-})
-    .finally(() => __awaiter(void 0, void 0, void 0, function* () {
-    yield prisma.$disconnect();
-}));
