@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
-import { CoffeeChatStatus } from '@prisma/client';
+import { CoffeeChatStatus, EmploymentStatus } from '@prisma/client';
 
 // 커피챗 기본 타입 정의
 export interface CoffeeChatWithUsers {
@@ -12,14 +12,30 @@ export interface CoffeeChatWithUsers {
   requester?: {
     profile?: {
       nickname: string;
-      imageUrl?: string;
-    };
+      imageUrl?: string | null;
+      experienceYears?: number;
+      employmentStatus?: EmploymentStatus | null;
+    } | null;
+    desirePositions?: {
+      position: {
+        id: string;
+        name: string;
+      };
+    }[];
   };
   receiver?: {
     profile?: {
       nickname: string;
-      imageUrl?: string;
-    };
+      imageUrl?: string | null;
+      experienceYears?: number;
+      employmentStatus?: EmploymentStatus | null;
+    } | null;
+    desirePositions?: {
+      position: {
+        id: string;
+        name: string;
+      };
+    }[];
   };
 }
 
