@@ -257,7 +257,7 @@ export class ChatRepository {
               WHERE id = cp."lastReadMessageId"
             )
           )
-        WHERE cp."userId" = ${userId} AND cp."leftAt" IS NULL
+        WHERE cp."userId" = ${userId}::uuid AND cp."leftAt" IS NULL
         GROUP BY cp."chatRoomId"
       `
     );
