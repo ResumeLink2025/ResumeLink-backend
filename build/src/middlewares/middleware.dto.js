@@ -19,6 +19,7 @@ function validateDto(dtoClass, source = 'body') {
         const errors = yield (0, class_validator_1.validate)(dtoInstance);
         if (errors.length > 0) {
             const errorMessages = errors.flatMap(err => Object.values(err.constraints || {}));
+            console.log("오류: 입력값 잘못됨");
             res.status(400).json({ message: '입력값이 잘못되었습니다.', errors: errorMessages });
             return;
         }
