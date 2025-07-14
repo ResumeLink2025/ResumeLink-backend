@@ -17,7 +17,8 @@ export class AuthService {
     if (existingEmail) throw new Error('이미 존재하는 이메일입니다.')
     
     const hashed = await hashPassword(password);
-    const user = await this.authRepository.createUser(email, hashed, nickname)
+ 
+    const user = await this.authRepository.createUser(email, hashed, nickname || 'username');
     
     const accessToken = generateAccessToken({userId: user.id})
     const refreshToken = generateRefreshToken({userId: user.id})

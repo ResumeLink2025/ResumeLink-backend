@@ -10,7 +10,6 @@ const path_1 = __importDefault(require("path"));
 const routers_1 = __importDefault(require("./routers")); // 팩토리 함수로 변경
 const auth_router_1 = __importDefault(require("./routers/auth.router"));
 const resume_router_1 = __importDefault(require("./routers/resume.router"));
-const profile_router_1 = __importDefault(require("./routers/profile.router"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 dotenv_1.default.config();
@@ -28,7 +27,6 @@ function createApp(io) {
     app.use('/api', (0, routers_1.default)(io));
     app.use('/api/auth', auth_router_1.default);
     app.use('/api/resumes', resume_router_1.default);
-    app.use('/api/profile', profile_router_1.default);
     app.set("port", process.env.PORT || 3000);
     app.get("/", (req, res) => {
         res.send("Hello World!");
