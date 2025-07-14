@@ -65,8 +65,8 @@ ${experienceNote}
 - 프로젝트:
 ${projects.map(p => `  • ${p.projectName} (${p.startDate} ~ ${p.endDate ?? "현재"}): 역할 - ${p.role}
     설명: ${p.projectDesc ?? "없음"}
-    일반 스킬: ${p.generalSkills.join(", ")}
-    커스텀 스킬: ${p.customSkills.join(", ")}
+    일반 스킬: ${(p.generalSkills ?? []).join(", ")}
+    커스텀 스킬: ${(p.customSkills ?? []).join(", ")}
     id: ${p.id}`).join("\n")}
 
 - 활동:
