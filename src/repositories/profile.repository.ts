@@ -54,26 +54,30 @@ export const findUserProfileById = (tx: any, userId: string) => {
       imageUrl: true,
       summary: true,
       updatedAt: true,
-      userSkills: {
+      user: {
         select: {
-          skill: {
+          userSkills: {
             select: {
-              id: true,
-              name: true,
+              skill: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
             }
-          }
-        }
-      },
-      desirePositions: {
-        select: {
-          position: {
+          },
+          desirePositions: {
             select: {
-              id: true,
-              name: true,
+              position: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
             }
           }
         }
       }
-    },
+    }
   });
 };
