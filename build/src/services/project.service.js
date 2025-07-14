@@ -94,7 +94,6 @@ class ProjectService {
             return result;
         });
     }
-    ;
     // 4. 삭제
     deleteProject(userId, projectNumber) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -132,8 +131,8 @@ class ProjectService {
                 throw error;
             }
             return {
-                general_skills: project.generalSkills,
-                custom_skills: project.customSkills,
+                generalSkills: project.generalSkills,
+                customSkills: project.customSkills,
             };
         });
     }

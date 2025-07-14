@@ -25,7 +25,7 @@ router.put('/:id', middleware_auth_1.authMiddleware, (0, middleware_dto_1.valida
     yield projectController.updateProject(req, res);
 }));
 // 개별 프로젝트 보기
-router.patch('/:id', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get('/:id', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     yield projectController.getProject(req, res);
 }));
 // 프로젝트 삭제
@@ -41,11 +41,15 @@ router.get('/:id/tags', middleware_auth_1.authMiddleware, (req, res) => __awaite
     yield projectController.getProjectTags(req, res);
 }));
 // 프로젝트 목록
-router.patch('/', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    yield projectController.getProjects(req, res);
-}));
+// router.get(
+//   '/',
+//   authMiddleware,
+//   async (req: Request, res: Response) => {
+//     await projectController.getProjects(req, res);
+//   }
+// );
 // 내 프로젝트 목록
-router.patch('/', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get('/', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     yield projectController.getMyProjects(req, res);
 }));
 // 프로젝트 좋아요

@@ -163,7 +163,7 @@ class ProjectRepository {
                 };
             }
             if (query.desc) {
-                where.AND - where.AND || [];
+                where.AND = where.AND || [];
                 where.AND.push({
                     OR: [
                         { role: { contains: query.desc, mode: 'insensitive' } },

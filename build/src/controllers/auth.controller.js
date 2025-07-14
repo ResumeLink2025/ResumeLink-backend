@@ -117,7 +117,7 @@ class AuthController {
                     maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
                     path: '/',
                 });
-                return res.redirect(`http://localhost:3000/success?userId=${userId}&accessToken=${accessToken}`);
+                return res.redirect(`http://localhost:8080/success?userId=${userId}&accessToken=${accessToken}`);
             }
             catch (e) {
                 if (e.message == "존재하지 않는 유저입니다.") {
@@ -140,7 +140,7 @@ class AuthController {
                     maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
                     path: '/',
                 });
-                return res.redirect(`http://localhost:3000/success?userId=${userId}&accessToken=${accessToken}`);
+                return res.redirect(`http://localhost:8080/success?userId=${userId}&accessToken=${accessToken}`);
             }
             catch (error) {
                 const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
