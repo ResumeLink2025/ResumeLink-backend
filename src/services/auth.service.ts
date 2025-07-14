@@ -18,7 +18,7 @@ export class AuthService {
     
     const hashed = await hashPassword(password);
  
-    const user = await this.authRepository.createUser(email, hashed, nickname || "username")
+    const user = await this.authRepository.createUser(email, hashed, nickname || 'username');
     
     const accessToken = generateAccessToken({userId: user.id})
     const refreshToken = generateRefreshToken({userId: user.id})
