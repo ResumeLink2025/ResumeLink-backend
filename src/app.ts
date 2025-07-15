@@ -31,7 +31,7 @@ export default function createApp(io?: Server) {
   app.use('/api/auth', authRouter);
   app.use('/api/resumes', resumeRouter);
   app.use('/api/projects', projectRouter);
-  app.use('/api/profiles', profileRouter)
+  app.use('/api/profiles', profileRouter);
   app.use('/api/images', imageRouter);
 
 
