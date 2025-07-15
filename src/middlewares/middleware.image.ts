@@ -7,13 +7,12 @@ import { Request } from 'express';
 const storage = multerS3({
   s3: s3Client,
   bucket: process.env.AWS_S3_BUCKET_NAME!,
-  acl: 'public-read',
   key: (req, file, cb) => {
     const userId = (req as any).user?.userId || 'unknown';
     const timestamp = Date.now();
     const ext = path.extname(file.originalname);
     const nameWithoutExt = path.basename(file.originalname, ext);
-    const filename = `profile-images/${timestamp}_${userId}_${nameWithoutExt}${ext}`;
+    const filename = `images/${timestamp}_${userId}_${nameWithoutExt}${ext}`;
     cb(null, filename);
   }
 });
