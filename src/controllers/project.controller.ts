@@ -107,7 +107,7 @@ export class ProjectController {
 
       const projects = await this.projectService.getProjects(userId, query);
 
-      return res.status(200).json({ data: projects });
+      return res.status(200).json(projects);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
     }
@@ -126,7 +126,7 @@ export class ProjectController {
 
       const projects = await this.projectService.getProjects(userId, myQuery);
 
-      return res.status(200).json({ data: projects });
+      return res.status(200).json(projects);
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
     }
