@@ -94,7 +94,6 @@ class ProjectService {
             return result;
         });
     }
-    ;
     // 4. 삭제
     deleteProject(userId, projectNumber) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -132,8 +131,8 @@ class ProjectService {
                 throw error;
             }
             return {
-                general_skills: project.generalSkills,
-                custom_skills: project.customSkills,
+                generalSkills: project.generalSkills,
+                customSkills: project.customSkills,
             };
         });
     }
@@ -159,7 +158,12 @@ class ProjectService {
     // 7. 프로젝트 목록
     getProjects(userId, query) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.projectRepository.findProjects(userId, query);
+            const projectArray = yield this.projectRepository.findProjects(userId, query);
+            const resultArray = [];
+            for (let project of projectArray) {
+                resultArray.push(transformProjectToDto(project));
+            }
+            return resultArray;
         });
     }
     // 9. 좋아요

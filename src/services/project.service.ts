@@ -157,7 +157,15 @@ export class ProjectService {
 
   // 7. 프로젝트 목록
   async getProjects(userId: string, query: any) {
-    return this.projectRepository.findProjects(userId, query);
+
+    const projectArray = await this.projectRepository.findProjects(userId, query);
+    const resultArray: ProjectDetailDto[] = []
+
+    for ( let project of projectArray ) {
+      resultArray.push(transformProjectToDto(project))
+    }
+
+    return resultArray
   }
 
   // 9. 좋아요

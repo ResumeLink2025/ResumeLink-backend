@@ -41,11 +41,15 @@ router.get('/:id/tags', middleware_auth_1.authMiddleware, (req, res) => __awaite
     yield projectController.getProjectTags(req, res);
 }));
 // 프로젝트 목록
-router.patch('/', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    yield projectController.getProjects(req, res);
-}));
+// router.get(
+//   '/',
+//   authMiddleware,
+//   async (req: Request, res: Response) => {
+//     await projectController.getProjects(req, res);
+//   }
+// );
 // 내 프로젝트 목록
-router.get('/', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.patch('/', middleware_auth_1.authMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     yield projectController.getMyProjects(req, res);
 }));
 // 프로젝트 좋아요

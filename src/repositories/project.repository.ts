@@ -223,9 +223,12 @@ export class ProjectRepository {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      select: {
-        id: true,
-        projectName: true,
+      include: { 
+        generalSkills: {
+          include: {
+            skill: true,
+          },
+        },
       },
     });
   }
