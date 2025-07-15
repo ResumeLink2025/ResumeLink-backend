@@ -4,11 +4,15 @@ import path from 'path';
 import s3Client from '../utils/s3';
 import { Request } from 'express';
 
+export interface AuthenticatedRequest extends Request {
+  user: { userId: string; };
+}
+
 const storage = multerS3({
   s3: s3Client,
   bucket: process.env.AWS_S3_BUCKET_NAME!,
-  key: (req, file, cb) => {
-    const userId = (req as any).user?.userId || 'unknown';
+  key: (req: AuthenticatedRequest, file, cb) => {
+    const userId = req.user?.userId || 'unknown';
     const timestamp = Date.now();
     const ext = path.extname(file.originalname);
     const nameWithoutExt = path.basename(file.originalname, ext);
@@ -29,7 +33,7 @@ const fileFilter = (
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(null, false);
+    cb(new Error('지원하지 않는 파일 형식입니다.'));
   }
 };
 
