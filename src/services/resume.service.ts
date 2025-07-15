@@ -1,8 +1,9 @@
+// resume.service.ts
 import prisma from "../lib/prisma";
 import { buildNarrativeJsonPrompt } from "../utils/prompt";
 import { generateGeminiText } from "../lib/gemini";
 import { resumeRepository } from "../repositories/resume.repository";
-import { ResumeRequestBody } from "../../types/resume";
+import type { ResumeRequestBody } from "../../types/resume";
 
 export const resumeService = {
   createResumeWithAI: async (userId: string, requestBody: ResumeRequestBody) => {
@@ -13,32 +14,16 @@ export const resumeService = {
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
     console.log("[createResumeWithAI] userProfile:", JSON.stringify(userProfile, null, 2));
 
-    // userSkills, desirePositions 받아오기
-    const userSkills = await prisma.userSkill.findMany({
-      where: { user: { id: userProfile.id } },
-      include: { skill: true },
-    });
-    const desirePositions = await prisma.desirePosition.findMany({
-      where: { user: { id: userProfile.id } },
-      include: { position: true },
-    });
-
-    // 배열 보장 (DB에서 없으면 requestBody에서)
-    const skills = userSkills.length > 0
-      ? userSkills.map((us) => us.skill.name)
-      : (Array.isArray(requestBody.skills) ? requestBody.skills : []);
-
-    const positions = desirePositions.length > 0
-      ? desirePositions.map((dp) => dp.position.name)
-      : (Array.isArray(requestBody.positions) ? requestBody.positions : []);
-
+    // 프론트에서 넘어온 데이터 그대로 사용
+    const skills = Array.isArray(requestBody.skills) ? requestBody.skills : [];
+    const positions = Array.isArray(requestBody.positions) ? requestBody.positions : [];
     const categories = Array.isArray(requestBody.categories) ? requestBody.categories : [];
     const projects = Array.isArray(requestBody.projects) ? requestBody.projects : [];
     const activities = Array.isArray(requestBody.activities) ? requestBody.activities : [];
     const certificates = Array.isArray(requestBody.certificates) ? requestBody.certificates : [];
 
-    console.log("[createResumeWithAI] merged skills:", skills);
-    console.log("[createResumeWithAI] merged positions:", positions);
+    console.log("[createResumeWithAI] skills:", skills);
+    console.log("[createResumeWithAI] positions:", positions);
 
     const geminiInput = {
       ...requestBody,
@@ -62,11 +47,10 @@ export const resumeService = {
 
     let parsed;
     try {
-      // AI 결과에서 ```json ... ``` 부분 제거
       const cleaned = aiResult
-        .replace(/^```json/, '')   // 시작 부분 ```json 제거
-        .replace(/^```/, '')       // 시작 부분 ``` 제거 (만약 ```json 없으면)
-        .replace(/```$/, '')       // 끝부분 ``` 제거
+        .replace(/^```json/, '')
+        .replace(/^```/, '')
+        .replace(/```$/, '')
         .trim();
 
       parsed = JSON.parse(cleaned);
@@ -76,10 +60,20 @@ export const resumeService = {
       throw new Error("AI 응답을 파싱하는 데 실패했습니다.");
     }
 
+    // 매핑 함수들 사용하여 DB에 넣을 데이터 형태로 변환
+    const mappedProjects = mapProjects(parsed.projects ?? []);
+    const mappedActivities = mapActivities(parsed.activities ?? []);
+    const mappedCertificates = mapCertificates(parsed.certificates ?? []);
+
     const createdResume = await resumeRepository.createResume(
       userProfile.id,
       requestBody.experienceNote ?? "",
-      parsed
+      {
+        ...parsed,
+        projects: mappedProjects,
+        activities: mappedActivities,
+        certificates: mappedCertificates,
+      }
     );
     console.log("[createResumeWithAI] createdResume from DB:", JSON.stringify(createdResume, null, 2));
 
@@ -89,8 +83,6 @@ export const resumeService = {
       positions,
     };
   },
-
-
 
   getResumesByUserId: async (userId: string) => {
     console.log("[getResumesByUserId] 시작 - userId:", userId);
@@ -107,7 +99,7 @@ export const resumeService = {
     const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
     console.log("[getResumesByUserId] resumes found:", JSON.stringify(resumes, null, 2));
 
-    return resumes;
+    return resumes.map(formatResumeData);
   },
 
   getResumeById: async (resumeId: string) => {
@@ -120,7 +112,7 @@ export const resumeService = {
     }
     console.log("[getResumeById] resume found:", JSON.stringify(resume, null, 2));
 
-    return resume;
+    return formatResumeData(resume);
   },
 
   updateResume: async (
@@ -147,7 +139,17 @@ export const resumeService = {
     }
     console.log("[updateResume] resume found:", JSON.stringify(resume, null, 2));
 
-    const updatedResume = await resumeRepository.updateResume(resumeId, updateData);
+    // 매핑 함수 사용
+    const mappedProjects = updateData.projects ? mapProjects(updateData.projects) : undefined;
+    const mappedActivities = updateData.activities ? mapActivities(updateData.activities) : undefined;
+    const mappedCertificates = updateData.certificates ? mapCertificates(updateData.certificates) : undefined;
+
+    const updatedResume = await resumeRepository.updateResume(resumeId, {
+      ...updateData,
+      projects: mappedProjects,
+      activities: mappedActivities,
+      certificates: mappedCertificates,
+    });
     console.log("[updateResume] updatedResume:", JSON.stringify(updatedResume, null, 2));
 
     return updatedResume;
@@ -184,7 +186,8 @@ export const resumeService = {
     const resumes = await resumeRepository.getAllPublicResumes();
     console.log("[getAllResumes] 조회된 이력서 개수:", resumes.length);
 
-    return resumes;
+    // 배열 각각 포맷 적용
+    return resumes.map(formatResumeData);
   },
 
   getPublicResumesByTitleSearch: async (searchTerm?: string) => {
@@ -198,6 +201,77 @@ export const resumeService = {
     const resumes = await resumeRepository.getPublicResumesByTitleSearch(searchTerm);
     console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
 
-    return resumes;
+    return resumes.map(formatResumeData);
   },
 };
+
+// 매핑 함수들
+
+function mapProjects(projects: any[]) {
+  return projects.map((proj) => ({
+    id: proj.id,
+    aiDescription: proj.projectDesc ?? proj.aiDescription ?? "",
+    generalSkills: proj.generalSkills ?? [],
+    customSkills: proj.customSkills ?? [],
+  }));
+}
+
+function mapActivities(activities: any[]) {
+  return activities.map((act) => {
+    if (!act.startDate) throw new Error("활동의 시작일(startDate)은 필수입니다.");
+    return {
+      title: act.title,
+      description: act.description ?? "",
+      startDate: new Date(act.startDate),
+      endDate: act.endDate ? new Date(act.endDate) : undefined,
+    };
+  });
+}
+
+function mapCertificates(certificates: any[]) {
+  return certificates.map((cert) => {
+    return {
+      name: cert.name,
+      date: cert.date ? new Date(cert.date) : undefined,
+      grade: cert.grade ?? "",
+      issuer: cert.issuer ?? "",
+    };
+  });
+}
+
+// DB에서 불러온 이력서 데이터를 프론트용으로 깔끔히 포맷
+function formatResumeData(raw: any) {
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    title: raw.title,
+    summary: raw.summary,
+    experienceNote: raw.experienceNote,
+    theme: raw.theme,
+    isPublic: raw.isPublic,
+    categories: raw.categories,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    skills: raw.skills?.map((item: any) => item.skill.name) ?? [],
+    positions: raw.positions?.map((item: any) => item.position.name) ?? [],
+    projects: raw.projects?.map((prj: any) => ({
+      projectName: prj.project?.projectName ?? "",
+      projectDesc: prj.project?.projectDesc ?? "",
+      generalSkills: prj.project?.generalSkills?.map((gs: any) => gs.skill?.name ?? "") ?? [],
+      customSkills: prj.project?.customSkills ?? [],
+      role: prj.project?.role ?? "",
+    })) ?? [],
+    activities: raw.activities?.map((act: any) => ({
+      title: act.title,
+      description: act.description ?? "",
+      startDate: act.startDate,
+      endDate: act.endDate,
+    })) ?? [],
+    certificates: raw.certificates?.map((cert: any) => ({
+      name: cert.name,
+      date: cert.date,
+      grade: cert.grade,
+      issuer: cert.issuer,
+    })) ?? [],
+  };
+}
