@@ -1,4 +1,3 @@
-// resume.service.ts
 import prisma from "../lib/prisma";
 import { buildNarrativeJsonPrompt } from "../utils/prompt";
 import { generateGeminiText } from "../lib/gemini";
@@ -14,7 +13,6 @@ export const resumeService = {
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
     console.log("[createResumeWithAI] userProfile:", JSON.stringify(userProfile, null, 2));
 
-    // 프론트에서 넘어온 데이터 그대로 사용
     const skills = Array.isArray(requestBody.skills) ? requestBody.skills : [];
     const positions = Array.isArray(requestBody.positions) ? requestBody.positions : [];
     const categories = Array.isArray(requestBody.categories) ? requestBody.categories : [];
@@ -60,7 +58,6 @@ export const resumeService = {
       throw new Error("AI 응답을 파싱하는 데 실패했습니다.");
     }
 
-    // 매핑 함수들 사용하여 DB에 넣을 데이터 형태로 변환
     const mappedProjects = mapProjects(parsed.projects ?? []);
     const mappedActivities = mapActivities(parsed.activities ?? []);
     const mappedCertificates = mapCertificates(parsed.certificates ?? []);
@@ -139,7 +136,6 @@ export const resumeService = {
     }
     console.log("[updateResume] resume found:", JSON.stringify(resume, null, 2));
 
-    // 매핑 함수 사용
     const mappedProjects = updateData.projects ? mapProjects(updateData.projects) : undefined;
     const mappedActivities = updateData.activities ? mapActivities(updateData.activities) : undefined;
     const mappedCertificates = updateData.certificates ? mapCertificates(updateData.certificates) : undefined;
@@ -186,7 +182,6 @@ export const resumeService = {
     const resumes = await resumeRepository.getAllPublicResumes();
     console.log("[getAllResumes] 조회된 이력서 개수:", resumes.length);
 
-    // 배열 각각 포맷 적용
     return resumes.map(formatResumeData);
   },
 
@@ -206,7 +201,6 @@ export const resumeService = {
 };
 
 // 매핑 함수들
-
 function mapProjects(projects: any[]) {
   return projects.map((proj) => ({
     id: proj.id,
@@ -239,7 +233,7 @@ function mapCertificates(certificates: any[]) {
   });
 }
 
-// DB에서 불러온 이력서 데이터를 프론트용으로 깔끔히 포맷
+// DB에서 불러온 이력서 데이터 프론트 형식으로 변환
 function formatResumeData(raw: any) {
   return {
     id: raw.id,
