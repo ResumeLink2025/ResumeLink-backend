@@ -185,19 +185,67 @@ export const resumeService = {
     return resumes.map(formatResumeData);
   },
 
-  getPublicResumesByTitleSearch: async (searchTerm?: string) => {
-    console.log("[getPublicResumesByTitleSearch] 시작 - searchTerm:", searchTerm);
+getPublicResumesByTitleSearch: async (
+  searchTerm?: string,
+  skillNames?: string[],
+  positionNames?: string[]
+) => {
+  console.log("[getPublicResumesByTitleSearch] 시작 - searchTerm:", searchTerm, "skillNames:", skillNames, "positionNames:", positionNames);
 
-    if (!searchTerm) {
-      console.warn("[getPublicResumesByTitleSearch] searchTerm이 없어서 빈 배열 반환");
-      return [];
-    }
+  const whereClause: any = {
+    isPublic: true,
+  };
 
-    const resumes = await resumeRepository.getPublicResumesByTitleSearch(searchTerm);
-    console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
+  if (searchTerm && searchTerm.trim() !== "") {
+    whereClause.title = {
+      contains: searchTerm,
+      mode: "insensitive",
+    };
+  }
 
-    return resumes.map(formatResumeData);
-  },
+  if (skillNames && skillNames.length > 0) {
+    whereClause.skills = {
+      some: {
+        skill: {
+          name: { in: skillNames },
+        },
+      },
+    };
+  }
+
+  if (positionNames && positionNames.length > 0) {
+    whereClause.positions = {
+      some: {
+        position: {
+          name: { in: positionNames },
+        },
+      },
+    };
+  }
+
+  const resumes = await prisma.resume.findMany({
+    where: whereClause,
+    include: {
+      skills: { include: { skill: true } },
+      positions: { include: { position: true } },
+      projects: {
+        include: {
+          project: {
+            include: {
+              generalSkills: { include: { skill: true } },
+            },
+          },
+        },
+      },
+      activities: true,
+      certificates: true,
+    },
+  });
+
+  console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
+
+  return resumes.map(formatResumeData);
+}
 };
 
 // 매핑 함수들

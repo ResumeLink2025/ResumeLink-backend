@@ -116,7 +116,7 @@ export const resumeRepository = {
             project: {
               include: {
                 generalSkills: {
-                  include: {skill: true}
+                  include: { skill: true }
                 }
               }
             }
@@ -269,15 +269,38 @@ export const resumeRepository = {
     });
   },
 
-  getPublicResumesByTitleSearch: (searchTerm: string) => {
-    return prisma.resume.findMany({
-      where: {
-        isPublic: true,
-        title: {
-          contains: searchTerm,
-          mode: "insensitive",
+  getPublicResumesByTitleSearch: (searchTerm?: string, skillNames?: string[], positionNames?: string[]) => {
+    const where: any = { isPublic: true };
+
+    if (searchTerm && searchTerm.trim() !== "") {
+      where.title = {
+        contains: searchTerm,
+        mode: "insensitive",
+      };
+    }
+
+    if (skillNames && skillNames.length > 0) {
+      where.skills = {
+        some: {
+          skill: {
+            name: { in: skillNames },
+          },
         },
-      },
+      };
+    }
+
+    if (positionNames && positionNames.length > 0) {
+      where.positions = {
+        some: {
+          position: {
+            name: { in: positionNames },
+          },
+        },
+      };
+    }
+
+    return prisma.resume.findMany({
+      where,
       include: {
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
@@ -294,5 +317,5 @@ export const resumeRepository = {
         certificates: true,
       },
     });
-  },
+  }
 };
