@@ -31,8 +31,8 @@ export default function createApp(io?: Server) {
   app.use('/api/auth', authRouter);
   app.use('/api/resumes', resumeRouter);
   app.use('/api/projects', projectRouter);
-  app.use('/api/profile', profileRouter)
-  app.use('/api/image', imageRouter);
+  app.use('/api/profiles', profileRouter)
+  app.use('/api/images', imageRouter);
 
 
   app.set("port", process.env.PORT || 3000);
