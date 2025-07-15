@@ -163,7 +163,7 @@ class ProjectRepository {
                 };
             }
             if (query.desc) {
-                where.AND - where.AND || [];
+                where.AND = where.AND || [];
                 where.AND.push({
                     OR: [
                         { role: { contains: query.desc, mode: 'insensitive' } },
@@ -182,9 +182,12 @@ class ProjectRepository {
                 where,
                 skip: (page - 1) * limit,
                 take: limit,
-                select: {
-                    id: true,
-                    projectName: true,
+                include: {
+                    generalSkills: {
+                        include: {
+                            skill: true,
+                        },
+                    },
                 },
             });
         });

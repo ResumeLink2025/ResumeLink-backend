@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildNarrativeJsonPrompt = buildNarrativeJsonPrompt;
 function buildNarrativeJsonPrompt(data) {
-    const { name, position, summary, experienceNote = "", categories, skills, projects, activities = [], certificates = [], } = data;
+    const { name, positions = [], summary, experienceNote = "", categories = [], skills = [], projects = [], activities = [], certificates = [], } = data;
     return `
 너는 신입 또는 주니어 개발자를 위한 이력서를 작성하는 전문가야.
 
@@ -22,18 +22,18 @@ function buildNarrativeJsonPrompt(data) {
 출력 스키마:
 {
   "name": string,
-  "position": string[],
+  "positions": string[],
   "summary": string,
   "categories": string[],
   "skills": string[],
-  "projects": [{ "title": string, "description": string, "role": string, "startDate": string, "endDate": string | null, "generalSkills": string[], "customSkills": string[] }],
+  "projects": [{ "id": string, "title": string, "description": string, "role": string, "startDate": string, "endDate": string | null, "generalSkills": string[], "customSkills": string[] }],
   "activities": [{ "title": string, "startDate": string, "endDate": string, "description": string }],
   "certificates": [{ "name": string, "date": string, "grade": string, "issuer": string }]
 }
 
 입력 정보:
 - 이름: ${name}
-- 희망 직무: ${position}
+- 희망 직무: ${positions.join(", ")}
 - 한줄 요약: ${summary}
 
 - 개발자 카테고리: ${categories.join(", ")}
@@ -48,7 +48,8 @@ ${projects.map(p => {
         return `  • ${p.projectName} (${p.startDate} ~ ${(_a = p.endDate) !== null && _a !== void 0 ? _a : "현재"}): 역할 - ${p.role}
     설명: ${(_b = p.projectDesc) !== null && _b !== void 0 ? _b : "없음"}
     일반 스킬: ${p.generalSkills.join(", ")}
-    커스텀 스킬: ${p.customSkills.join(", ")}`;
+    커스텀 스킬: ${p.customSkills.join(", ")}
+    id: ${p.id}`;
     }).join("\n")}
 
 - 활동:
