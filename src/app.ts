@@ -7,6 +7,7 @@ import authRouter from './routers/auth.router';
 import resumeRouter from './routers/resume.router';
 import projectRouter from './routers/project.router';
 import profileRouter from './routers/profile.router';
+import imageRouter from './routers/image.router';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
@@ -31,6 +32,7 @@ export default function createApp(io?: Server) {
   app.use('/api/resumes', resumeRouter);
   app.use('/api/projects', projectRouter);
   app.use('/api/profile', profileRouter)
+  app.use('/api/image', imageRouter);
 
 
   app.set("port", process.env.PORT || 3000);
