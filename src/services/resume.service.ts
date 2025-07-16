@@ -49,6 +49,7 @@ interface RawResume {
   positions?: { position: { name: string } }[];
   projects?: {
     project?: {
+      id?: string;
       projectName?: string | null;
       projectDesc?: string | null;
       generalSkills?: { skill?: { name?: string } }[];
@@ -336,6 +337,7 @@ function formatResumeData(raw: RawResume & { user:{profile: { nickname: string; 
     skills: raw.skills?.map((item) => item.skill.name) ?? [],
     positions: raw.positions?.map((item) => item.position.name) ?? [],
     projects: raw.projects?.map((prj) => ({
+      id: prj.project?.id,
       projectName: prj.project?.projectName ?? "",
       projectDesc: prj.project?.projectDesc ?? "",
       generalSkills: prj.project?.generalSkills?.map((gs) => gs.skill?.name ?? "") ?? [],
