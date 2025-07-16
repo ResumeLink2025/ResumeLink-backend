@@ -2,7 +2,76 @@ import prisma from "../lib/prisma";
 import { buildNarrativeJsonPrompt } from "../utils/prompt";
 import { generateGeminiText } from "../lib/gemini";
 import { resumeRepository } from "../repositories/resume.repository";
-import type { ResumeRequestBody } from "../../types/resume";
+import type { AiProjectInfo, ResumeRequestBody } from "../../types/resume";
+
+interface ProjectInput {
+  id?: string;
+  projectDesc?: string;
+  aiDescription?: string;
+  generalSkills?: SkillInput[];
+  customSkills?: string[];
+  projectName?: string;
+  role?: string;
+}
+
+interface SkillInput {
+  skill?: {
+    name: string;
+  };
+}
+
+interface ActivityInput {
+  title: string;
+  description?: string;
+  startDate: string | Date;
+  endDate?: string | Date;
+}
+
+interface CertificateInput {
+  name: string;
+  date?: string | Date;
+  grade?: string;
+  issuer?: string;
+}
+
+interface RawResume {
+  id: string;
+  userId: string;
+  title: string;
+  summary?: string | null;
+  experienceNote?: string | null;
+  theme?: string | null;
+  isPublic: boolean;
+  categories?: string[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+  skills?: { skill: { name: string } }[];
+  positions?: { position: { name: string } }[];
+  projects?: {
+    project?: {
+      projectName?: string | null;
+      projectDesc?: string | null;
+      generalSkills?: { skill?: { name?: string } }[];
+      customSkills?: string[];
+      role?: string | null;
+    };
+  }[];
+  activities?: {
+    title: string;
+    description?: string | null;
+    startDate: Date | null;
+    endDate?: Date | null;
+  }[];
+  certificates?: {
+    name: string;
+    date?: Date | null;
+    grade?: string | null;
+    issuer?: string | null;
+  }[];
+}
+
+
+// --- 서비스 함수 및 매핑 함수 구현 ---
 
 export const resumeService = {
   createResumeWithAI: async (userId: string, requestBody: ResumeRequestBody) => {
@@ -112,31 +181,22 @@ export const resumeService = {
     return formatResumeData(resume);
   },
 
-  updateResume: async (
+   updateResume: async (
     resumeId: string,
     userId: string,
     updateData: Partial<ResumeRequestBody>
   ) => {
-    console.log("[updateResume] 시작 - resumeId:", resumeId, "userId:", userId);
-    console.log("[updateResume] updateData:", JSON.stringify(updateData, null, 2));
-
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { id: userId },
-    });
-    if (!userProfile) {
-      console.error("[updateResume] 프로필이 존재하지 않습니다.");
-      throw new Error("프로필이 존재하지 않습니다.");
-    }
-    console.log("[updateResume] userProfile found:", JSON.stringify(userProfile, null, 2));
+    const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
+    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.userId !== userProfile.id) {
-      console.error("[updateResume] 수정 권한이 없거나 이력서를 찾을 수 없습니다.");
-      throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
-    }
-    console.log("[updateResume] resume found:", JSON.stringify(resume, null, 2));
+    if (!resume || resume.userId !== userProfile.id) throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
 
-    const mappedProjects = updateData.projects ? mapProjects(updateData.projects) : undefined;
+    // 여기서만 generalSkills string[] → SkillInput[] 변환
+    const mappedProjects = updateData.projects
+      ? mapProjects(convertProjectsForUpdate(updateData.projects as AiProjectInfo[]))
+      : undefined;
+
     const mappedActivities = updateData.activities ? mapActivities(updateData.activities) : undefined;
     const mappedCertificates = updateData.certificates ? mapCertificates(updateData.certificates) : undefined;
 
@@ -146,7 +206,6 @@ export const resumeService = {
       activities: mappedActivities,
       certificates: mappedCertificates,
     });
-    console.log("[updateResume] updatedResume:", JSON.stringify(updatedResume, null, 2));
 
     return updatedResume;
   },
@@ -185,71 +244,47 @@ export const resumeService = {
     return resumes.map(formatResumeData);
   },
 
-getPublicResumesByTitleSearch: async (
-  searchTerm?: string,
-  skillNames?: string[],
-  positionNames?: string[]
-) => {
-  console.log("[getPublicResumesByTitleSearch] 시작 - searchTerm:", searchTerm, "skillNames:", skillNames, "positionNames:", positionNames);
+  getPublicResumesByTitleSearch: async (
+    searchTerm?: string,
+    skillNames?: string[],
+    positionNames?: string[]
+  ) => {
+    console.log("[getPublicResumesByTitleSearch] 시작 - searchTerm:", searchTerm, "skillNames:", skillNames, "positionNames:", positionNames);
 
-  const whereClause: any = {
-    isPublic: true,
-  };
+    const resumes = await resumeRepository.getPublicResumesByTitleSearch(
+      searchTerm,
+      skillNames,
+      positionNames
+    );
 
-  if (searchTerm && searchTerm.trim() !== "") {
-    whereClause.title = {
-      contains: searchTerm,
-      mode: "insensitive",
-    };
+    console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
+
+    return resumes.map(formatResumeData);
   }
-
-  if (skillNames && skillNames.length > 0) {
-    whereClause.skills = {
-      some: {
-        skill: {
-          name: { in: skillNames },
-        },
-      },
-    };
-  }
-
-  if (positionNames && positionNames.length > 0) {
-    whereClause.positions = {
-      some: {
-        position: {
-          name: { in: positionNames },
-        },
-      },
-    };
-  }
-
-  const resumes = await prisma.resume.findMany({
-    where: whereClause,
-    include: {
-      skills: { include: { skill: true } },
-      positions: { include: { position: true } },
-      projects: {
-        include: {
-          project: {
-            include: {
-              generalSkills: { include: { skill: true } },
-            },
-          },
-        },
-      },
-      activities: true,
-      certificates: true,
-    },
-  });
-
-  console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
-
-  return resumes.map(formatResumeData);
-}
 };
 
-// 매핑 함수들
-function mapProjects(projects: any[]) {
+// --- 매핑 함수들 ---
+function convertGeneralSkills(skills: string[]): SkillInput[] {
+  return skills.map((name) => ({ skill: { name } }));
+}
+
+function convertProjectsForUpdate(aiProjects: AiProjectInfo[]): ProjectInput[] {
+  return aiProjects.map(proj => ({
+    id: proj.id,
+    projectName: proj.projectName,
+    projectDesc: proj.projectDesc,
+    role: proj.role,
+    generalSkills: proj.generalSkills.map(name => ({ skill: { name } })),
+    customSkills: proj.customSkills,
+  }));
+}
+
+function mapProjects(projects: ProjectInput[]): {
+  id?: string;
+  aiDescription: string;
+  generalSkills: SkillInput[];
+  customSkills: string[];
+}[] {
   return projects.map((proj) => ({
     id: proj.id,
     aiDescription: proj.projectDesc ?? proj.aiDescription ?? "",
@@ -258,62 +293,75 @@ function mapProjects(projects: any[]) {
   }));
 }
 
-function mapActivities(activities: any[]) {
+function mapActivities(activities: ActivityInput[]): {
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate?: Date;
+}[] {
   return activities.map((act) => {
     if (!act.startDate) throw new Error("활동의 시작일(startDate)은 필수입니다.");
     return {
       title: act.title,
       description: act.description ?? "",
-      startDate: new Date(act.startDate),
-      endDate: act.endDate ? new Date(act.endDate) : undefined,
+      startDate: typeof act.startDate === "string" ? new Date(act.startDate) : act.startDate,
+      endDate: act.endDate ? (typeof act.endDate === "string" ? new Date(act.endDate) : act.endDate) : undefined,
     };
   });
 }
 
-function mapCertificates(certificates: any[]) {
-  return certificates.map((cert) => {
-    return {
-      name: cert.name,
-      date: cert.date ? new Date(cert.date) : undefined,
-      grade: cert.grade ?? "",
-      issuer: cert.issuer ?? "",
-    };
-  });
+function mapCertificates(certificates: CertificateInput[]): {
+  name: string;
+  date?: Date;
+  grade: string;
+  issuer: string;
+}[] {
+  return certificates.map((cert) => ({
+    name: cert.name,
+    date: cert.date ? (typeof cert.date === "string" ? new Date(cert.date) : cert.date) : undefined,
+    grade: cert.grade ?? "",
+    issuer: cert.issuer ?? "",
+  }));
 }
 
-// DB에서 불러온 이력서 데이터 프론트 형식으로 변환
-function formatResumeData(raw: any) {
+function formatResumeData(raw: RawResume) {
   return {
     id: raw.id,
     userId: raw.userId,
     title: raw.title,
-    summary: raw.summary,
-    experienceNote: raw.experienceNote,
-    theme: raw.theme,
+    summary: raw.summary ?? undefined,
+    experienceNote: raw.experienceNote ?? undefined,
+    theme: raw.theme ?? undefined,
     isPublic: raw.isPublic,
-    categories: raw.categories,
+    categories: raw.categories ?? undefined,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
-    skills: raw.skills?.map((item: any) => item.skill.name) ?? [],
-    positions: raw.positions?.map((item: any) => item.position.name) ?? [],
-    projects: raw.projects?.map((prj: any) => ({
+    skills: raw.skills?.map((item) => item.skill.name) ?? [],
+    positions: raw.positions?.map((item) => item.position.name) ?? [],
+    projects: raw.projects?.map((prj) => ({
       projectName: prj.project?.projectName ?? "",
       projectDesc: prj.project?.projectDesc ?? "",
-      generalSkills: prj.project?.generalSkills?.map((gs: any) => gs.skill?.name ?? "") ?? [],
+      generalSkills: prj.project?.generalSkills?.map((gs) => gs.skill?.name ?? "") ?? [],
       customSkills: prj.project?.customSkills ?? [],
       role: prj.project?.role ?? "",
     })) ?? [],
-    activities: raw.activities?.map((act: any) => ({
-      title: act.title,
-      description: act.description ?? "",
-      startDate: act.startDate,
-      endDate: act.endDate,
-    })) ?? [],
-    certificates: raw.certificates?.map((cert: any) => ({
+    activities: raw.activities?.map((act) => {
+      if (act.startDate === null) {
+        throw new Error("activities의 startDate가 null입니다.");
+      }
+      return {
+        title: act.title,
+        description: act.description ?? "",
+        startDate: act.startDate,
+        endDate: act.endDate ?? undefined,
+      };
+    }) ?? [],
+    certificates: raw.certificates?.map((cert) => ({
       name: cert.name,
-      date: cert.date,
+      date: cert.date ?? undefined,
       grade: cert.grade,
       issuer: cert.issuer,
     })) ?? [],
   };
 }
+

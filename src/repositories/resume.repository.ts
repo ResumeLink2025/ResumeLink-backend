@@ -56,22 +56,11 @@ export const resumeRepository = {
         },
 
         activities: {
-          create: (data.activities ?? []).map((act) => ({
-            title: act.title,
-            description: act.description ?? "",
-            startDate: new Date(act.startDate),
-            endDate: act.endDate ? new Date(act.endDate) : undefined,
-            resumeId: undefined, // 자동 처리됨
-          })),
+          create: data.activities ?? [],
         },
 
         certificates: {
-          create: (data.certificates ?? []).map((cert) => ({
-            name: cert.name,
-            date: cert.date ? new Date(cert.date) : undefined,
-            grade: cert.grade ?? "",
-            issuer: cert.issuer ?? "",
-          })),
+          create: data.certificates ?? [],
         },
       },
       include: {
@@ -270,7 +259,7 @@ export const resumeRepository = {
   },
 
   getPublicResumesByTitleSearch: (searchTerm?: string, skillNames?: string[], positionNames?: string[]) => {
-    const where: any = { isPublic: true };
+    const where: Prisma.ResumeWhereInput = { isPublic: true };
 
     if (searchTerm && searchTerm.trim() !== "") {
       where.title = {
