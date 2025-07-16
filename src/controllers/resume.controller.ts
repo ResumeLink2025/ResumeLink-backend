@@ -79,18 +79,29 @@ export const resumeController = {
     }
   },
 
-  getPublicResumesByTitleSearch: async (req: Request, res: Response) => {
-    try {
-      const { searchTerm } = req.query;
+getPublicResumesByTitleSearch: async (req: Request, res: Response) => {
+  try {
+    const { searchTerm, skillNames, positionNames } = req.query;
 
-      const resumes = await resumeService.getPublicResumesByTitleSearch(
-        typeof searchTerm === "string" ? searchTerm : undefined
-      );
-      res.json(resumes);
-    } catch (error) {
-      console.error("제목 검색 이력서 조회 실패:", error);
-      res.status(500).json({ message: "이력서 검색 중 오류 발생" });
-    }
-  },
+    const skillArray = typeof skillNames === "string" && skillNames.trim() !== ""
+      ? skillNames.split(",").map(s => s.trim())
+      : undefined;
+
+    const positionArray = typeof positionNames === "string" && positionNames.trim() !== ""
+      ? positionNames.split(",").map(s => s.trim())
+      : undefined;
+
+    const resumes = await resumeService.getPublicResumesByTitleSearch(
+      typeof searchTerm === "string" && searchTerm.trim() !== "" ? searchTerm : undefined,
+      skillArray,
+      positionArray
+    );
+
+    res.json(resumes);
+  } catch (error) {
+    console.error("제목 검색 이력서 조회 실패:", error);
+    res.status(500).json({ message: "이력서 검색 중 오류 발생" });
+  }
+},
 
 };
