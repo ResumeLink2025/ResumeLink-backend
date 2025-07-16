@@ -3,7 +3,7 @@ import prisma from '../lib/prisma';
 
 interface ProfileData {
     nickname: string;
-    birthday: string;
+    birthday?: Date;
     gender?: string;
     customSkill?: Record<string, unknown>;
     customInterest?: Record<string, unknown>;
