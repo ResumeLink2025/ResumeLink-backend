@@ -257,8 +257,15 @@ export const resumeRepository = {
     });
   },
 
-  deleteResume: (resumeId: string) => {
-    return prisma.resume.delete({ where: { id: resumeId } });
+  deleteResume: async (resumeId: string) => {
+    return await prisma.$transaction(async (tx) => {
+      await tx.projectResume.deleteMany({ where: { resumeId } });
+      await tx.developmentActivity.deleteMany({ where: { resumeId } });
+      await tx.certificate.deleteMany({ where: { resumeId } });
+      await tx.resumeSkill.deleteMany({ where: { resumeId } });
+      await tx.resumePosition.deleteMany({ where: { resumeId } });
+      return tx.resume.delete({ where: { id: resumeId } });
+    });
   },
 
   getAllPublicResumes: () => {
@@ -268,7 +275,7 @@ export const resumeRepository = {
         user: {
           select: {
             id: true,
-            email: true,         
+            email: true,
             profile: {
               select: {
                 nickname: true,
