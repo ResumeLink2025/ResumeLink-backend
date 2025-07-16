@@ -20,6 +20,10 @@ export class CreateProjectDto {
   @IsString()
   projectDesc?: string;
 
+  @IsOptional()
+  @IsString()
+  imgUrl!: string;
+
   @IsBoolean()
   isPublic!: boolean;
 
@@ -50,6 +54,7 @@ export interface ProjectDetailDto {
   projectNumber: number;
   projectName: string;
   projectDesc: string;
+  imgUrl?: string | null;
   isPublic: boolean;
   status: string; // enum 그대로 export해도 됨
   startDate: string;
