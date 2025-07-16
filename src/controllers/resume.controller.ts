@@ -41,13 +41,14 @@ export const resumeController = {
       const { userId } = req.user!;
       const updated = await resumeService.updateResume(id, userId, req.body);
       res.json(updated);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("이력서 수정 실패:", error);
-      const message =
-        error.message === "프로필이 존재하지 않습니다." ||
-          error.message.includes("권한")
-          ? error.message
-          : "이력서 수정 중 오류 발생";
+      let message = "이력서 수정 중 오류 발생";
+      if (error instanceof Error) {
+        if (error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")) {
+          message = error.message;
+        }
+      }
       res.status(403).json({ message });
     }
   },
@@ -58,13 +59,14 @@ export const resumeController = {
       const { userId } = req.user!;
       await resumeService.deleteResume(id, userId);
       res.status(200).json({ message: "삭제됐습니다" });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("이력서 삭제 실패:", error);
-      const message =
-        error.message === "프로필이 존재하지 않습니다." ||
-          error.message.includes("권한")
-          ? error.message
-          : "이력서 삭제 중 오류 발생";
+      let message = "이력서 삭제 중 오류 발생";
+      if (error instanceof Error) {
+        if (error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")) {
+          message = error.message;
+        }
+      }
       res.status(403).json({ message });
     }
   },
