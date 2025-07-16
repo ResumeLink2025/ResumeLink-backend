@@ -23,7 +23,7 @@ interface SkillInput {
 interface ActivityInput {
   title: string;
   description?: string;
-  startDate: string | Date;
+  startDate?: string | Date;
   endDate?: string | Date;
 }
 
@@ -60,7 +60,7 @@ interface RawResume {
   activities?: {
     title: string;
     description?: string | null;
-    startDate: Date | null;
+    startDate?: Date | null;
     endDate?: Date | null;
   }[];
   certificates?: {
@@ -84,7 +84,6 @@ export const resumeService = {
       console.error("[createResumeWithAI] 프로필 없음 - userId:", userId);
       throw new Error("프로필이 존재하지 않습니다.");
     }
-
     const skills = Array.isArray(requestBody.skills) ? requestBody.skills : [];
     const positions = Array.isArray(requestBody.positions) ? requestBody.positions : [];
     const categories = Array.isArray(requestBody.categories) ? requestBody.categories : [];
@@ -131,6 +130,7 @@ export const resumeService = {
       requestBody.experienceNote ?? "",
       {
         ...parsed,
+        title: requestBody.title ?? "AI 생성 이력서",
         isPublic: requestBody.isPublic ?? false,
         projects: mappedProjects,
         activities: mappedActivities,
@@ -270,8 +270,8 @@ function convertProjectsForUpdate(aiProjects: AiProjectInfo[]): ProjectInput[] {
     projectName: proj.projectName,
     projectDesc: proj.projectDesc,
     role: proj.role,
-    generalSkills: proj.generalSkills.map(name => ({ skill: { name } })),
-    customSkills: proj.customSkills,
+    generalSkills: (proj.generalSkills ?? []).map(name => ({ skill: { name } })),
+    customSkills: proj.customSkills ?? [],
   }));
 }
 
@@ -292,18 +292,15 @@ function mapProjects(projects: ProjectInput[]): {
 function mapActivities(activities: ActivityInput[]): {
   title: string;
   description: string;
-  startDate: Date;
+  startDate?: Date;
   endDate?: Date;
 }[] {
-  return activities.map((act) => {
-    if (!act.startDate) throw new Error("활동의 시작일(startDate)은 필수입니다.");
-    return {
-      title: act.title,
-      description: act.description ?? "",
-      startDate: typeof act.startDate === "string" ? new Date(act.startDate) : act.startDate,
-      endDate: act.endDate ? (typeof act.endDate === "string" ? new Date(act.endDate) : act.endDate) : undefined,
-    };
-  });
+  return activities.map((act) => ({
+    title: act.title,
+    description: act.description ?? "",
+    startDate: act.startDate ? (typeof act.startDate === "string" ? new Date(act.startDate) : act.startDate) : undefined,
+    endDate: act.endDate ? (typeof act.endDate === "string" ? new Date(act.endDate) : act.endDate) : undefined,
+  }));
 }
 
 function mapCertificates(certificates: CertificateInput[]): {
@@ -344,17 +341,12 @@ function formatResumeData(raw: RawResume & { user:{profile: { nickname: string; 
       customSkills: prj.project?.customSkills ?? [],
       role: prj.project?.role ?? "",
     })) ?? [],
-    activities: raw.activities?.map((act) => {
-      if (act.startDate === null) {
-        throw new Error("activities의 startDate가 null입니다.");
-      }
-      return {
+    activities: raw.activities?.map((act) => ({
         title: act.title,
         description: act.description ?? "",
         startDate: act.startDate,
         endDate: act.endDate ?? undefined,
-      };
-    }) ?? [],
+    })) ?? [],
     certificates: raw.certificates?.map((cert) => ({
       name: cert.name,
       date: cert.date ?? undefined,
