@@ -77,6 +77,18 @@ export const resumeRepository = {
     return prisma.resume.findMany({
       where: { userId },
       include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -98,6 +110,18 @@ export const resumeRepository = {
     return prisma.resume.findUnique({
       where: { id: resumeId },
       include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -241,6 +265,18 @@ export const resumeRepository = {
     return prisma.resume.findMany({
       where: { isPublic: true },
       include: {
+        user: {
+          select: {
+            id: true,
+            email: true,         
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -291,6 +327,18 @@ export const resumeRepository = {
     return prisma.resume.findMany({
       where,
       include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {

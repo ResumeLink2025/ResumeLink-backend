@@ -76,11 +76,14 @@ interface RawResume {
 export const resumeService = {
   createResumeWithAI: async (userId: string, requestBody: ResumeRequestBody) => {
     console.log("[createResumeWithAI] 시작 - userId:", userId);
-    console.log("[createResumeWithAI] requestBody:", JSON.stringify(requestBody, null, 2));
+    console.log("[createResumeWithAI] 입력 requestBody:", JSON.stringify(requestBody, null, 2));
 
     const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
-    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
-    console.log("[createResumeWithAI] userProfile:", JSON.stringify(userProfile, null, 2));
+    if (!userProfile) {
+      console.error("[createResumeWithAI] 프로필 없음 - userId:", userId);
+      throw new Error("프로필이 존재하지 않습니다.");
+    }
+    console.log("[createResumeWithAI] userProfile 조회 완료:", JSON.stringify(userProfile, null, 2));
 
     const skills = Array.isArray(requestBody.skills) ? requestBody.skills : [];
     const positions = Array.isArray(requestBody.positions) ? requestBody.positions : [];
@@ -89,8 +92,12 @@ export const resumeService = {
     const activities = Array.isArray(requestBody.activities) ? requestBody.activities : [];
     const certificates = Array.isArray(requestBody.certificates) ? requestBody.certificates : [];
 
-    console.log("[createResumeWithAI] skills:", skills);
-    console.log("[createResumeWithAI] positions:", positions);
+    console.log("[createResumeWithAI] 분리된 데이터 - skills:", skills);
+    console.log("[createResumeWithAI] 분리된 데이터 - positions:", positions);
+    console.log("[createResumeWithAI] 분리된 데이터 - categories:", categories);
+    console.log("[createResumeWithAI] 분리된 데이터 - projects:", projects);
+    console.log("[createResumeWithAI] 분리된 데이터 - activities:", activities);
+    console.log("[createResumeWithAI] 분리된 데이터 - certificates:", certificates);
 
     const geminiInput = {
       ...requestBody,
@@ -103,14 +110,13 @@ export const resumeService = {
       activities,
       certificates,
     };
-
-    console.log("[createResumeWithAI] geminiInput for AI:", JSON.stringify(geminiInput, null, 2));
+    console.log("[createResumeWithAI] Gemini 입력 데이터:", JSON.stringify(geminiInput, null, 2));
 
     const prompt = buildNarrativeJsonPrompt(geminiInput);
-    console.log("[createResumeWithAI] prompt sent to AI:", prompt);
+    console.log("[createResumeWithAI] AI에 보낼 프롬프트:", prompt);
 
     const aiResult = await generateGeminiText(prompt);
-    console.log("[createResumeWithAI] raw AI result:", aiResult);
+    console.log("[createResumeWithAI] AI 원본 응답:", aiResult);
 
     let parsed;
     try {
@@ -121,27 +127,33 @@ export const resumeService = {
         .trim();
 
       parsed = JSON.parse(cleaned);
-      console.log("[createResumeWithAI] parsed AI result:", JSON.stringify(parsed, null, 2));
+      console.log("[createResumeWithAI] AI 응답 파싱 완료:", JSON.stringify(parsed, null, 2));
     } catch (error) {
-      console.error("[createResumeWithAI] Failed to parse Gemini response:", aiResult, error);
+      console.error("[createResumeWithAI] AI 응답 파싱 실패:", aiResult, error);
       throw new Error("AI 응답을 파싱하는 데 실패했습니다.");
     }
 
     const mappedProjects = mapProjects(parsed.projects ?? []);
+    console.log("[createResumeWithAI] 매핑된 프로젝트:", JSON.stringify(mappedProjects, null, 2));
+
     const mappedActivities = mapActivities(parsed.activities ?? []);
+    console.log("[createResumeWithAI] 매핑된 활동:", JSON.stringify(mappedActivities, null, 2));
+
     const mappedCertificates = mapCertificates(parsed.certificates ?? []);
+    console.log("[createResumeWithAI] 매핑된 자격증:", JSON.stringify(mappedCertificates, null, 2));
 
     const createdResume = await resumeRepository.createResume(
       userProfile.id,
       requestBody.experienceNote ?? "",
       {
         ...parsed,
+        isPublic: requestBody.isPublic ?? false,
         projects: mappedProjects,
         activities: mappedActivities,
         certificates: mappedCertificates,
       }
     );
-    console.log("[createResumeWithAI] createdResume from DB:", JSON.stringify(createdResume, null, 2));
+    console.log("[createResumeWithAI] DB 저장 완료, 생성된 이력서:", JSON.stringify(createdResume, null, 2));
 
     return {
       ...createdResume,
@@ -181,7 +193,7 @@ export const resumeService = {
     return formatResumeData(resume);
   },
 
-   updateResume: async (
+  updateResume: async (
     resumeId: string,
     userId: string,
     updateData: Partial<ResumeRequestBody>
@@ -324,10 +336,12 @@ function mapCertificates(certificates: CertificateInput[]): {
   }));
 }
 
-function formatResumeData(raw: RawResume) {
+function formatResumeData(raw: RawResume & { user:{profile: { nickname: string; imageUrl: string | null } | null; }; }) {
   return {
     id: raw.id,
     userId: raw.userId,
+    nickname: raw.user?.profile?.nickname,
+    imageUrl: raw.user?.profile?.imageUrl ?? null,
     title: raw.title,
     summary: raw.summary ?? undefined,
     experienceNote: raw.experienceNote ?? undefined,
