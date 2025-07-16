@@ -87,7 +87,7 @@ export class ProjectRepository {
     userId: string;
     projectName: string;
     projectDesc: string;
-    imgUrl: string;
+    imgUrl?: string;
     isPublic: boolean;
     status: ProjectStatus;
     startDate: string;
