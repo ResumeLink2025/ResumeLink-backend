@@ -7,6 +7,15 @@ import { CreateProjectDto, UpdateProjectDto } from '../dtos/project.dto';
 const router = Router();
 const projectController = new ProjectController();
 
+// 프로젝트 전체 목록
+router.get(
+  '/all',
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    await projectController.getProjects(req, res);
+  }
+);
+
 // 프로젝트 생성
 router.post(
   '/',
@@ -62,15 +71,6 @@ router.get(
     await projectController.getProjectTags(req, res);
   }
 );
-
-// 프로젝트 목록
-// router.get(
-//   '/',
-//   authMiddleware,
-//   async (req: Request, res: Response) => {
-//     await projectController.getProjects(req, res);
-//   }
-// );
 
 // 내 프로젝트 목록
 router.get(
