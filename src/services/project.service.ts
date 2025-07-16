@@ -16,6 +16,7 @@ export class ProjectService {
     const {
       projectName,
       projectDesc,
+      imgUrl,
       isPublic,
       status,
       startDate,
@@ -29,6 +30,7 @@ export class ProjectService {
       userId,
       projectName,
       projectDesc: projectDesc || "",
+      imgUrl,
       isPublic,
       status,
       startDate,
@@ -54,6 +56,7 @@ export class ProjectService {
     const {
       projectName,
       projectDesc,
+      imgUrl,
       isPublic,
       status,
       startDate,
@@ -67,6 +70,7 @@ export class ProjectService {
         userId,
         projectName,
         projectDesc: projectDesc || "",
+        imgUrl,
         isPublic,
         status,
         startDate,

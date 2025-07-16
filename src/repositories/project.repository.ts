@@ -13,6 +13,7 @@ export class ProjectRepository {
     userId: string;
     projectName: string;
     projectDesc: string;
+    imgUrl?: string;
     isPublic: boolean;
     status: ProjectStatus;
     startDate: string;
@@ -44,6 +45,7 @@ export class ProjectRepository {
         userId: data.userId,
         projectName: data.projectName,
         projectDesc: data.projectDesc,
+        imgUrl: data.imgUrl,
         isPublic: data.isPublic,
         status: data.status,
         startDate: new Date(data.startDate),
@@ -85,6 +87,7 @@ export class ProjectRepository {
     userId: string;
     projectName: string;
     projectDesc: string;
+    imgUrl?: string;
     isPublic: boolean;
     status: ProjectStatus;
     startDate: string;
@@ -120,6 +123,7 @@ export class ProjectRepository {
       data: {
         projectName: data.projectName,
         projectDesc: data.projectDesc,
+        imgUrl: data.imgUrl,
         isPublic: data.isPublic,
         status: data.status,
         startDate: new Date(data.startDate),

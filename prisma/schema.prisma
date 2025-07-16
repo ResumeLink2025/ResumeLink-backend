@@ -211,6 +211,7 @@ model Project {
   projectNumber   Int            @unique @default(autoincrement())
   projectName     String
   projectDesc     String?
+  imgUrl          String?
   isPublic        Boolean        @default(false)
   status          ProjectStatus
   startDate       DateTime       @db.Date
