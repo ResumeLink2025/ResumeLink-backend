@@ -1,4 +1,4 @@
-interface AiProjectInfo {
+export interface AiProjectInfo {
   id: string; // 프로젝트 ID (UUID)
   projectName: string;
   projectDesc?: string;
