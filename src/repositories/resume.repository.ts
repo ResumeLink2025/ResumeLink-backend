@@ -3,6 +3,21 @@ import prisma from "../lib/prisma";
 import type { Prisma, Skill, Position } from "@prisma/client";
 import type { ResumeRequestBody } from "../../types/resume";
 
+const userProfileInclude = {
+  user: {
+    select: {
+      id: true,
+      email: true,
+      profile: {
+        select: {
+          nickname: true,
+          imageUrl: true,
+        },
+      },
+    },
+  },
+};
+
 export const resumeRepository = {
   createResume: async (
     profileId: string,
@@ -77,6 +92,7 @@ export const resumeRepository = {
     return prisma.resume.findMany({
       where: { userId },
       include: {
+        ...userProfileInclude,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -98,6 +114,7 @@ export const resumeRepository = {
     return prisma.resume.findUnique({
       where: { id: resumeId },
       include: {
+        ...userProfileInclude,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -233,14 +250,22 @@ export const resumeRepository = {
     });
   },
 
-  deleteResume: (resumeId: string) => {
-    return prisma.resume.delete({ where: { id: resumeId } });
+  deleteResume: async (resumeId: string) => {
+    return await prisma.$transaction(async (tx) => {
+      await tx.projectResume.deleteMany({ where: { resumeId } });
+      await tx.developmentActivity.deleteMany({ where: { resumeId } });
+      await tx.certificate.deleteMany({ where: { resumeId } });
+      await tx.resumeSkill.deleteMany({ where: { resumeId } });
+      await tx.resumePosition.deleteMany({ where: { resumeId } });
+      return tx.resume.delete({ where: { id: resumeId } });
+    });
   },
 
   getAllPublicResumes: () => {
     return prisma.resume.findMany({
       where: { isPublic: true },
       include: {
+        ...userProfileInclude,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -291,6 +316,7 @@ export const resumeRepository = {
     return prisma.resume.findMany({
       where,
       include: {
+        ...userProfileInclude,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {

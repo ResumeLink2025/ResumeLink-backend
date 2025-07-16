@@ -41,13 +41,14 @@ export const resumeController = {
       const { userId } = req.user!;
       const updated = await resumeService.updateResume(id, userId, req.body);
       res.json(updated);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("이력서 수정 실패:", error);
-      const message =
-        error.message === "프로필이 존재하지 않습니다." ||
-        error.message.includes("권한")
-          ? error.message
-          : "이력서 수정 중 오류 발생";
+      let message = "이력서 수정 중 오류 발생";
+      if (error instanceof Error) {
+        if (error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")) {
+          message = error.message;
+        }
+      }
       res.status(403).json({ message });
     }
   },
@@ -57,14 +58,15 @@ export const resumeController = {
       const { id } = req.params;
       const { userId } = req.user!;
       await resumeService.deleteResume(id, userId);
-      res.status(204).send();
-    } catch (error: any) {
+      res.status(200).json({ message: "삭제됐습니다" });
+    } catch (error: unknown) {
       console.error("이력서 삭제 실패:", error);
-      const message =
-        error.message === "프로필이 존재하지 않습니다." ||
-        error.message.includes("권한")
-          ? error.message
-          : "이력서 삭제 중 오류 발생";
+      let message = "이력서 삭제 중 오류 발생";
+      if (error instanceof Error) {
+        if (error.message === "프로필이 존재하지 않습니다." || error.message.includes("권한")) {
+          message = error.message;
+        }
+      }
       res.status(403).json({ message });
     }
   },
@@ -79,29 +81,29 @@ export const resumeController = {
     }
   },
 
-getPublicResumesByTitleSearch: async (req: Request, res: Response) => {
-  try {
-    const { searchTerm, skillNames, positionNames } = req.query;
+  getPublicResumesByTitleSearch: async (req: Request, res: Response) => {
+    try {
+      const { searchTerm, skillNames, positionNames } = req.query;
 
-    const skillArray = typeof skillNames === "string" && skillNames.trim() !== ""
-      ? skillNames.split(",").map(s => s.trim())
-      : undefined;
+      const skillArray = typeof skillNames === "string" && skillNames.trim() !== ""
+        ? skillNames.split(",").map(s => s.trim())
+        : undefined;
 
-    const positionArray = typeof positionNames === "string" && positionNames.trim() !== ""
-      ? positionNames.split(",").map(s => s.trim())
-      : undefined;
+      const positionArray = typeof positionNames === "string" && positionNames.trim() !== ""
+        ? positionNames.split(",").map(s => s.trim())
+        : undefined;
 
-    const resumes = await resumeService.getPublicResumesByTitleSearch(
-      typeof searchTerm === "string" && searchTerm.trim() !== "" ? searchTerm : undefined,
-      skillArray,
-      positionArray
-    );
+      const resumes = await resumeService.getPublicResumesByTitleSearch(
+        typeof searchTerm === "string" && searchTerm.trim() !== "" ? searchTerm : undefined,
+        skillArray,
+        positionArray
+      );
 
-    res.json(resumes);
-  } catch (error) {
-    console.error("제목 검색 이력서 조회 실패:", error);
-    res.status(500).json({ message: "이력서 검색 중 오류 발생" });
-  }
-},
+      res.json(resumes);
+    } catch (error) {
+      console.error("제목 검색 이력서 조회 실패:", error);
+      res.status(500).json({ message: "이력서 검색 중 오류 발생" });
+    }
+  },
 
 };

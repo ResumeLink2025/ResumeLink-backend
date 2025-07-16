@@ -49,6 +49,7 @@ interface RawResume {
   positions?: { position: { name: string } }[];
   projects?: {
     project?: {
+      id?: string;
       projectName?: string | null;
       projectDesc?: string | null;
       generalSkills?: { skill?: { name?: string } }[];
@@ -76,11 +77,13 @@ interface RawResume {
 export const resumeService = {
   createResumeWithAI: async (userId: string, requestBody: ResumeRequestBody) => {
     console.log("[createResumeWithAI] 시작 - userId:", userId);
-    console.log("[createResumeWithAI] requestBody:", JSON.stringify(requestBody, null, 2));
+    console.log("[createResumeWithAI] 입력 requestBody:", JSON.stringify(requestBody, null, 2));
 
     const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
-    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
-    console.log("[createResumeWithAI] userProfile:", JSON.stringify(userProfile, null, 2));
+    if (!userProfile) {
+      console.error("[createResumeWithAI] 프로필 없음 - userId:", userId);
+      throw new Error("프로필이 존재하지 않습니다.");
+    }
 
     const skills = Array.isArray(requestBody.skills) ? requestBody.skills : [];
     const positions = Array.isArray(requestBody.positions) ? requestBody.positions : [];
@@ -88,9 +91,6 @@ export const resumeService = {
     const projects = Array.isArray(requestBody.projects) ? requestBody.projects : [];
     const activities = Array.isArray(requestBody.activities) ? requestBody.activities : [];
     const certificates = Array.isArray(requestBody.certificates) ? requestBody.certificates : [];
-
-    console.log("[createResumeWithAI] skills:", skills);
-    console.log("[createResumeWithAI] positions:", positions);
 
     const geminiInput = {
       ...requestBody,
@@ -104,13 +104,9 @@ export const resumeService = {
       certificates,
     };
 
-    console.log("[createResumeWithAI] geminiInput for AI:", JSON.stringify(geminiInput, null, 2));
-
     const prompt = buildNarrativeJsonPrompt(geminiInput);
-    console.log("[createResumeWithAI] prompt sent to AI:", prompt);
 
     const aiResult = await generateGeminiText(prompt);
-    console.log("[createResumeWithAI] raw AI result:", aiResult);
 
     let parsed;
     try {
@@ -121,9 +117,8 @@ export const resumeService = {
         .trim();
 
       parsed = JSON.parse(cleaned);
-      console.log("[createResumeWithAI] parsed AI result:", JSON.stringify(parsed, null, 2));
     } catch (error) {
-      console.error("[createResumeWithAI] Failed to parse Gemini response:", aiResult, error);
+      console.error("[createResumeWithAI] AI 응답 파싱 실패:", aiResult, error);
       throw new Error("AI 응답을 파싱하는 데 실패했습니다.");
     }
 
@@ -136,12 +131,13 @@ export const resumeService = {
       requestBody.experienceNote ?? "",
       {
         ...parsed,
+        isPublic: requestBody.isPublic ?? false,
         projects: mappedProjects,
         activities: mappedActivities,
         certificates: mappedCertificates,
       }
     );
-    console.log("[createResumeWithAI] createdResume from DB:", JSON.stringify(createdResume, null, 2));
+    console.log("[createResumeWithAI] DB 저장 완료, 생성된 이력서:", JSON.stringify(createdResume, null, 2));
 
     return {
       ...createdResume,
@@ -181,7 +177,7 @@ export const resumeService = {
     return formatResumeData(resume);
   },
 
-   updateResume: async (
+  updateResume: async (
     resumeId: string,
     userId: string,
     updateData: Partial<ResumeRequestBody>
@@ -324,10 +320,12 @@ function mapCertificates(certificates: CertificateInput[]): {
   }));
 }
 
-function formatResumeData(raw: RawResume) {
+function formatResumeData(raw: RawResume & { user:{profile: { nickname: string; imageUrl: string | null } | null; }; }) {
   return {
     id: raw.id,
     userId: raw.userId,
+    nickname: raw.user?.profile?.nickname,
+    imageUrl: raw.user?.profile?.imageUrl ?? null,
     title: raw.title,
     summary: raw.summary ?? undefined,
     experienceNote: raw.experienceNote ?? undefined,
@@ -339,6 +337,7 @@ function formatResumeData(raw: RawResume) {
     skills: raw.skills?.map((item) => item.skill.name) ?? [],
     positions: raw.positions?.map((item) => item.position.name) ?? [],
     projects: raw.projects?.map((prj) => ({
+      id: prj.project?.id,
       projectName: prj.project?.projectName ?? "",
       projectDesc: prj.project?.projectDesc ?? "",
       generalSkills: prj.project?.generalSkills?.map((gs) => gs.skill?.name ?? "") ?? [],
