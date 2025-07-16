@@ -34,11 +34,19 @@ export const updateUserProfile = async (
     const safeUserSkills: string[] = Array.isArray(userSkills) ? userSkills : [];
     const safeDesirePositions: string[] = Array.isArray(desirePositions) ? desirePositions : [];
     try {
+        let processedBirthday: Date | undefined;
+        if (birthday) {
+            processedBirthday = new Date(birthday + 'T00:00:00Z');
+            if (isNaN(processedBirthday.getTime())) {
+                res.status(400).json({ message: '유효하지 않은 생년월일 형식입니다.' });
+                return;
+            }
+        }
         const profile = await profileService.updateUserProfile(
             userId,
             {
                 nickname,
-                birthday,
+                birthday: processedBirthday,
                 gender,
                 customSkill,
                 customInterest,

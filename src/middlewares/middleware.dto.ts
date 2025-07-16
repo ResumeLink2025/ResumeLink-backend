@@ -16,8 +16,16 @@ export function validateDto(dtoClass: any, source: 'body' | 'params' | 'query' =
       res.status(400).json({ message: '입력값이 잘못되었습니다.', errors: errorMessages });
       return;
     }
+
+    const keyMap = {
+      body: 'validatedBody',
+      params: 'validatedParams',
+      query: 'validatedQuery',
+    } as const;
+
+    const validatedKey = keyMap[source];
+    req[validatedKey] = dtoInstance;
     
-    req[source] = dtoInstance;
     next();
   };
 }

@@ -1,6 +1,7 @@
+// resume.repository.ts
 import prisma from "../lib/prisma";
 import type { Prisma, Skill, Position } from "@prisma/client";
-import { ResumeRequestBody } from "../../types/resume";
+import type { ResumeRequestBody } from "../../types/resume";
 
 export const resumeRepository = {
   createResume: async (
@@ -28,49 +29,6 @@ export const resumeRepository = {
       )
     );
 
-    // activities 매핑 함수
-    const mapActivity = (act: {
-      title: string;
-      description?: string;
-      startDate?: string;
-      endDate?: string;
-    }) => {
-      if (!act.startDate || act.startDate.trim() === "") {
-        throw new Error("startDate는 필수입니다.");
-      }
-      return {
-        title: act.title,
-        description: act.description ?? "",
-        startDate: new Date(act.startDate),
-        endDate: act.endDate && act.endDate.trim() !== "" ? new Date(act.endDate) : undefined,
-      };
-    };
-
-    // certificates 매핑 함수
-    const mapCertificate = (cert: {
-      name: string;
-      date?: string;
-      grade?: string;
-      issuer?: string;
-    }) => {
-      const certData: {
-        name: string;
-        date?: Date;
-        grade: string;
-        issuer: string;
-      } = {
-        name: cert.name,
-        grade: cert.grade ?? "",
-        issuer: cert.issuer ?? "",
-      };
-
-      if (cert.date && cert.date.trim() !== "") {
-        certData.date = new Date(cert.date);
-      }
-
-      return certData;
-    };
-
     // Resume 생성
     return prisma.resume.create({
       data: {
@@ -91,24 +49,24 @@ export const resumeRepository = {
         },
 
         projects: {
-          create: data.projects.map((proj) => ({
+          create: (data.projects ?? []).map((proj) => ({
             project: { connect: { id: proj.id } },
             aiDescription: proj.projectDesc ?? "",
           })),
         },
 
         activities: {
-          create: (data.activities ?? []).map(mapActivity),
+          create: data.activities ?? [],
         },
 
         certificates: {
-          create: (data.certificates ?? []).map(mapCertificate),
+          create: data.certificates ?? [],
         },
       },
       include: {
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
-        projects: true,
+        projects: { include: { project: true } },
         activities: true,
         certificates: true,
       },
@@ -121,7 +79,15 @@ export const resumeRepository = {
       include: {
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
-        projects: true,
+        projects: {
+          include: {
+            project: {
+              include: {
+                generalSkills: { include: { skill: true } },
+              },
+            },
+          },
+        },
         activities: true,
         certificates: true,
       },
@@ -134,7 +100,17 @@ export const resumeRepository = {
       include: {
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
-        projects: true,
+        projects: {
+          include: {
+            project: {
+              include: {
+                generalSkills: {
+                  include: { skill: true }
+                }
+              }
+            }
+          }
+        },
         activities: true,
         certificates: true,
       },
@@ -173,6 +149,7 @@ export const resumeRepository = {
       if (skills) {
         await tx.resumeSkill.deleteMany({ where: { resumeId } });
         if (skills.length > 0) {
+          // 스킬은 이미 존재한다고 가정하고 조회
           const skillRecords: Skill[] = await tx.skill.findMany({
             where: { name: { in: skills } },
           });
@@ -210,7 +187,7 @@ export const resumeRepository = {
               tx.projectResume.create({
                 data: {
                   resumeId,
-                  projectId: proj.id,  // 여기서도 proj.id는 Project UUID
+                  projectId: proj.id,
                   aiDescription: proj.aiDescription ?? "",
                 },
               })
@@ -248,7 +225,7 @@ export const resumeRepository = {
         include: {
           skills: { include: { skill: true } },
           positions: { include: { position: true } },
-          projects: true,
+          projects: { include: { project: true } },
           activities: true,
           certificates: true,
         },
@@ -263,64 +240,71 @@ export const resumeRepository = {
   getAllPublicResumes: () => {
     return prisma.resume.findMany({
       where: { isPublic: true },
-      select: {
-        id: true,
-        title: true,
-        userId: true,
-        skills: {
-          select: {
-            skill: {
-              select: {
-                name: true,
+      include: {
+        skills: { include: { skill: true } },
+        positions: { include: { position: true } },
+        projects: {
+          include: {
+            project: {
+              include: {
+                generalSkills: { include: { skill: true } },
               },
             },
           },
         },
-        positions: {
-          select: {
-            position: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
+        activities: true,
+        certificates: true,
       },
     });
   },
 
-  getPublicResumesByTitleSearch: (searchTerm: string) => {
+  getPublicResumesByTitleSearch: (searchTerm?: string, skillNames?: string[], positionNames?: string[]) => {
+    const where: Prisma.ResumeWhereInput = { isPublic: true };
+
+    if (searchTerm && searchTerm.trim() !== "") {
+      where.title = {
+        contains: searchTerm,
+        mode: "insensitive",
+      };
+    }
+
+    if (skillNames && skillNames.length > 0) {
+      where.skills = {
+        some: {
+          skill: {
+            name: { in: skillNames },
+          },
+        },
+      };
+    }
+
+    if (positionNames && positionNames.length > 0) {
+      where.positions = {
+        some: {
+          position: {
+            name: { in: positionNames },
+          },
+        },
+      };
+    }
+
     return prisma.resume.findMany({
-      where: {
-        isPublic: true,
-        title: {
-          contains: searchTerm,
-          mode: "insensitive",
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        userId: true,
-        skills: {
-          select: {
-            skill: {
-              select: {
-                name: true,
+      where,
+      include: {
+        skills: { include: { skill: true } },
+        positions: { include: { position: true } },
+        projects: {
+          include: {
+            project: {
+              include: {
+                generalSkills: { include: { skill: true } },
               },
             },
           },
         },
-        positions: {
-          select: {
-            position: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
+        activities: true,
+        certificates: true,
       },
     });
-  },
+  }
 };

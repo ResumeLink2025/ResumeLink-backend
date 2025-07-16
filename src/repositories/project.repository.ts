@@ -160,70 +160,113 @@ export class ProjectRepository {
 
   // 전체 목록 (필터)
   async findProjects(
-    userId: string, 
+    userId: string,
     query: {
-        ownerId?: string;
-        skill?: string[];
-        tag?: string[];
-        desc?: string;
-        favorite?: boolean;
-        page?: number;
-        limit?: number;
-    }
-    ) {
-    const where: any = {};
-
-
+      ownerId?: string;
+      skill?: string[];
+      tag?: string[];
+      desc?: string;
+      favorite?: boolean;
+      page?: number;
+      limit?: number;
+      sortBy?: string;  // 정렬 필드
+      sortOrder?: string;
+    },
+  ) {
+    const andConditions: any[] = [];
+    
     if (query.ownerId) {
-      where.userId = query.ownerId;
+      andConditions.push({
+        userId: query.ownerId,
+      });
     }
 
     if (query.skill && query.skill.length > 0) {
-      where.projectSkills = {
-        some: {
-          skillId: { in: query.skill },
-        },
-      };
+      andConditions.push({
+        OR: [
+          {
+            generalSkills: {
+              some: {
+                skill: {
+                  name: { in: query.skill },
+                }
+              },
+            },
+          },
+          {
+            customSkills: {
+              hasSome: query.skill,
+            },
+          }
+        ],
+      });
     }
 
     if (query.favorite) {
-      where.favorites = {
-        some: {
-          userId: userId,
+      andConditions.push({
+        favorites: {
+          some: {
+            userId: userId,
+          },
         },
-      };
+      });
     }
 
     if (query.tag && query.tag.length > 0) {
-      where.tags = {
-        hasSome: query.tag,
-      };
+      andConditions.push({
+        tags: {
+          hasSome: query.tag,
+        },
+      });
     }
 
     if (query.desc) {
-        where.AND = where.AND || [];
-        where.AND.push({
-            OR: [
-                { role: {contains: query.desc, mode: 'insensitive' }},
-                { projectDesc: {contains: query.desc, mode: 'insensitive' }}
-            ]
-        })
+      andConditions.push({
+        OR: [
+          { role: { contains: query.desc, mode: 'insensitive' } },
+          { projectDesc: { contains: query.desc, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    // 공개 조건
+    const orCondition = [
+      { isPublic: true },
+      { userId },
+    ];
+
+    const where: any = {};
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    where.OR = orCondition;
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
-    // 비공개는 본인만
-    where.OR = [
-      { isPublic: true },
-      { userId },
-    ];
+    const allowedSortBy = ['createdAt', 'projectName'] as const;
+    const allowedSortOrder = ['asc', 'desc'] as const;
+
+    const sortBy = query.sortBy && allowedSortBy.includes(query.sortBy as any)
+      ? query.sortBy
+      : 'createdAt';
+
+    const sortOrder = query.sortOrder && allowedSortOrder.includes(query.sortOrder as any)
+      ? query.sortOrder
+      : 'desc';
+
+    const orderByCondition: Record<string, string> = {
+      [sortBy]: sortOrder,
+    };
 
     return prisma.project.findMany({
       where,
       skip: (page - 1) * limit,
       take: limit,
-      include: { 
+      orderBy: orderByCondition,
+      include: {
         generalSkills: {
           include: {
             skill: true,

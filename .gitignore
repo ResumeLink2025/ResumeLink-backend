@@ -134,6 +134,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+<<<<<<< HEAD
 .build
+=======
+build/
+>>>>>>> 9c7552d7e27b95e88feeea22a224ca02343a1da9
 
 src/test.ts
