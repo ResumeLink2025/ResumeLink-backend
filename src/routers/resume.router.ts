@@ -4,12 +4,12 @@ import { authMiddleware } from "../middlewares/middleware.auth";
 
 const router = Router();
 
-router.get("/search", resumeController.getPublicResumesByTitleSearch);
-router.get("/all", resumeController.getAllPublic);
+router.get("/search", authMiddleware, resumeController.getPublicResumesByTitleSearch);
+router.get("/all", authMiddleware, resumeController.getAllPublic);
 router.post("/", authMiddleware, resumeController.create);
 router.get("/", authMiddleware, resumeController.getAllByUser);
 router.get("/:id", authMiddleware, resumeController.getById);
-router.patch("/:id",authMiddleware, resumeController.update);
+router.patch("/:id", authMiddleware, resumeController.update);
 router.delete("/:id", authMiddleware, resumeController.delete);
 router.post("/:id/favorite", authMiddleware, resumeController.toggleFavorite);
 

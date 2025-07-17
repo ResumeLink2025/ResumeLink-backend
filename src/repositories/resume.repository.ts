@@ -121,12 +121,10 @@ export const resumeRepository = {
           include: {
             project: {
               include: {
-                generalSkills: {
-                  include: { skill: true }
-                }
-              }
-            }
-          }
+                generalSkills: { include: { skill: true } },
+              },
+            },
+          },
         },
         activities: true,
         certificates: true,
@@ -283,38 +281,27 @@ export const resumeRepository = {
     });
   },
 
-  getPublicResumesByTitleSearch: (searchTerm?: string, skillNames?: string[], positionNames?: string[]) => {
+  getPublicResumesByTitleSearch: async (
+    searchTerm?: string,
+    skillNames?: string[],
+    positionNames?: string[],
+    orderBy?: Prisma.ResumeOrderByWithRelationInput
+  ) => {
     const where: Prisma.ResumeWhereInput = { isPublic: true };
 
     if (searchTerm && searchTerm.trim() !== "") {
-      where.title = {
-        contains: searchTerm,
-        mode: "insensitive",
-      };
+      where.title = { contains: searchTerm, mode: "insensitive" };
     }
-
     if (skillNames && skillNames.length > 0) {
-      where.skills = {
-        some: {
-          skill: {
-            name: { in: skillNames },
-          },
-        },
-      };
+      where.skills = { some: { skill: { name: { in: skillNames } } } };
     }
-
     if (positionNames && positionNames.length > 0) {
-      where.positions = {
-        some: {
-          position: {
-            name: { in: positionNames },
-          },
-        },
-      };
+      where.positions = { some: { position: { name: { in: positionNames } } } };
     }
 
     return prisma.resume.findMany({
       where,
+      orderBy,
       include: {
         ...userProfileInclude,
         skills: { include: { skill: true } },
@@ -322,9 +309,7 @@ export const resumeRepository = {
         projects: {
           include: {
             project: {
-              include: {
-                generalSkills: { include: { skill: true } },
-              },
+              include: { generalSkills: { include: { skill: true } } },
             },
           },
         },
@@ -335,36 +320,56 @@ export const resumeRepository = {
   },
 
   addFavorite: async (userId: string, resumeId: string) => {
-    return prisma.resumeFavorite.create({
-      data: {
-        userId,
-        resumeId,
-      },
-    });
+    return prisma.$transaction([
+      prisma.resumeFavorite.create({ data: { userId, resumeId } }),
+      prisma.resume.update({
+        where: { id: resumeId },
+        data: { favoriteCount: { increment: 1 } },
+      }),
+    ]);
   },
 
   removeFavorite: async (userId: string, resumeId: string) => {
-    return prisma.resumeFavorite.deleteMany({
-      where: {
-        userId,
-        resumeId,
-      },
-    });
+    return prisma.$transaction([
+      prisma.resumeFavorite.deleteMany({ where: { userId, resumeId } }),
+      prisma.resume.update({
+        where: { id: resumeId },
+        data: { favoriteCount: { decrement: 1 } },
+      }),
+    ]);
   },
 
   countFavorites: async (resumeId: string) => {
-    return prisma.resumeFavorite.count({
-      where: { resumeId },
+    const resume = await prisma.resume.findUnique({
+      where: { id: resumeId },
+      select: { favoriteCount: true },
     });
+    return resume?.favoriteCount ?? 0;
   },
 
   isFavoritedByUser: async (userId: string, resumeId: string) => {
     const favorite = await prisma.resumeFavorite.findFirst({
-      where: {
-        userId,
-        resumeId,
-      },
+      where: { userId, resumeId },
     });
     return !!favorite;
   },
+
+  getUserFavorites: (userId: string, resumeIds: string[]) => {
+    return prisma.resumeFavorite.findMany({
+      where: { userId, resumeId: { in: resumeIds } },
+      select: { resumeId: true },
+    });
+  },
+
+  incrementFavoriteCount: (resumeId: string) =>
+    prisma.resume.update({
+      where: { id: resumeId },
+      data: { favoriteCount: { increment: 1 } },
+    }),
+
+  decrementFavoriteCount: (resumeId: string) =>
+    prisma.resume.update({
+      where: { id: resumeId },
+      data: { favoriteCount: { decrement: 1 } },
+    }),
 };
