@@ -250,36 +250,19 @@ export class ProjectRepository {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
-    // const allowedSortBy = ['createdAt', 'projectName'] as const;
-    // const allowedSortOrder = ['asc', 'desc'] as const;
+    let orderByCondition: Prisma.ProjectOrderByWithRelationInput;
 
-    // const sortBy = query.sortBy && allowedSortBy.includes(query.sortBy as any)
-    //   ? query.sortBy
-    //   : 'createdAt';
-
-    // const sortOrder = query.sortOrder && allowedSortOrder.includes(query.sortOrder as any)
-    //   ? query.sortOrder
-    //   : 'desc';
-
-    // const orderByCondition: Record<string, string> = {
-    //   [sortBy]: sortOrder,
-    // };
-
-    // const sort = query.sort ?? 'latest';
-
-      let orderByCondition: Prisma.ProjectOrderByWithRelationInput;
-
-      if (query.sortBy === 'popular') {
-        orderByCondition = {
-          favorites: {
-            _count: 'desc',
-          },
-        };
-      } else {
-        orderByCondition = {
-          createdAt: 'desc',
-        };
-      }
+    if (query.sortBy === 'popular') {
+      orderByCondition = {
+        favorites: {
+          _count: 'desc',
+        },
+      };
+    } else {
+      orderByCondition = {
+        createdAt: 'desc',
+      };
+    }
 
 
     return prisma.project.findMany({
