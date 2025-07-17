@@ -1,4 +1,4 @@
-import { ProjectStatus } from '@prisma/client';
+import { Prisma, ProjectStatus } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { contains } from 'class-validator';
 
@@ -173,8 +173,8 @@ export class ProjectRepository {
       favorite?: boolean;
       page?: number;
       limit?: number;
-      sortBy?: string;  // 정렬 필드
-      sortOrder?: string;
+      sortBy?: string;
+      //sortOrder?: string;
     },
   ) {
     const andConditions: any[] = [];
@@ -250,20 +250,20 @@ export class ProjectRepository {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
-    const allowedSortBy = ['createdAt', 'projectName'] as const;
-    const allowedSortOrder = ['asc', 'desc'] as const;
+    let orderByCondition: Prisma.ProjectOrderByWithRelationInput;
 
-    const sortBy = query.sortBy && allowedSortBy.includes(query.sortBy as any)
-      ? query.sortBy
-      : 'createdAt';
+    if (query.sortBy === 'popular') {
+      orderByCondition = {
+        favorites: {
+          _count: 'desc',
+        },
+      };
+    } else {
+      orderByCondition = {
+        createdAt: 'desc',
+      };
+    }
 
-    const sortOrder = query.sortOrder && allowedSortOrder.includes(query.sortOrder as any)
-      ? query.sortOrder
-      : 'desc';
-
-    const orderByCondition: Record<string, string> = {
-      [sortBy]: sortOrder,
-    };
 
     return prisma.project.findMany({
       where,
@@ -303,8 +303,23 @@ export class ProjectRepository {
     });
   }
 
-  // 좋아요 토글
   async toggleFavorite(userId: string, projectId: string, like: boolean) {
+    const [userExists, projectExists] = await Promise.all([
+      prisma.userAuth.findUnique({ where: { id: userId } }),
+      prisma.project.findUnique({ where: { id: projectId } }),
+    ]);
+
+    if (!userExists) {
+      const error: any = new Error('존재하지 않는 사용자입니다.');
+      error.status = 404;
+      throw error;
+    }
+    if (!projectExists) {
+      const error: any = new Error('존재하지 않는 프로젝트입니다.');
+      error.status = 404;
+      throw error;
+    }
+
     const favorite = await prisma.projectFavorite.findUnique({
       where: {
         userId_projectId: {
