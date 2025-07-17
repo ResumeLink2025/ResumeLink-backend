@@ -227,7 +227,7 @@ export class ProjectRepository {
     if (query.desc) {
       andConditions.push({
         OR: [
-          { role: { contains: query.desc, mode: 'insensitive' } },
+          { projectName: { contains: query.desc, mode: 'insensitive' } },
           { projectDesc: { contains: query.desc, mode: 'insensitive' } },
         ],
       });
@@ -274,6 +274,16 @@ export class ProjectRepository {
         generalSkills: {
           include: {
             skill: true,
+          },
+        },
+        user: {
+          select: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true
+              }
+            }
           },
         },
         favorites: {
