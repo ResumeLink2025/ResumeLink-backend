@@ -231,6 +231,7 @@ export const resumeService = {
         ...parsed,
         title: requestBody.title ?? "AI 생성 이력서",
         isPublic: requestBody.isPublic ?? false,
+        theme: requestBody.theme ?? "light",
         projects: mappedProjects,
         activities: mappedActivities,
         certificates: mappedCertificates,
