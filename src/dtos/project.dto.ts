@@ -22,7 +22,7 @@ export class CreateProjectDto {
 
   @IsOptional()
   @IsString()
-  imgUrl!: string;
+  imgUrl?: string;
 
   @IsBoolean()
   isPublic!: boolean;
