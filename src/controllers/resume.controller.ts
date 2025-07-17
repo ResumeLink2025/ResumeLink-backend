@@ -27,7 +27,8 @@ export const resumeController = {
   getById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const resume = await resumeService.getResumeById(id);
+      const { userId } = req.user!;
+      const resume = await resumeService.getResumeById(id, userId);
       res.json(resume);
     } catch (error) {
       console.error("이력서 조회 실패:", error);
@@ -106,4 +107,29 @@ export const resumeController = {
     }
   },
 
+  toggleFavorite: async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const resumeId = req.params.id;
+
+      const result = await resumeService.toggleFavorite(userId, resumeId);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("좋아요 토글 실패:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  removeFavorite: async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const resumeId = req.params.id;
+
+      await resumeService.toggleFavorite(userId, resumeId);
+      res.json({ success: true, favorited: false });
+    } catch (error: any) {
+      console.error("좋아요 삭제 실패:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
 };

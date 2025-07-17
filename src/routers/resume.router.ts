@@ -11,6 +11,7 @@ router.get("/", authMiddleware, resumeController.getAllByUser);
 router.get("/:id", authMiddleware, resumeController.getById);
 router.patch("/:id",authMiddleware, resumeController.update);
 router.delete("/:id", authMiddleware, resumeController.delete);
-
+router.post("/:id/favorite", authMiddleware, resumeController.toggleFavorite);
+router.delete("/:id/favorite", authMiddleware, resumeController.removeFavorite);
 
 export default router;

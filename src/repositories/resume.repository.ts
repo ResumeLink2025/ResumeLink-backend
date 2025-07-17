@@ -332,5 +332,39 @@ export const resumeRepository = {
         certificates: true,
       },
     });
-  }
+  },
+
+  addFavorite: async (userId: string, resumeId: string) => {
+    return prisma.resumeFavorite.create({
+      data: {
+        userId,
+        resumeId,
+      },
+    });
+  },
+
+  removeFavorite: async (userId: string, resumeId: string) => {
+    return prisma.resumeFavorite.deleteMany({
+      where: {
+        userId,
+        resumeId,
+      },
+    });
+  },
+
+  countFavorites: async (resumeId: string) => {
+    return prisma.resumeFavorite.count({
+      where: { resumeId },
+    });
+  },
+
+  isFavoritedByUser: async (userId: string, resumeId: string) => {
+    const count = await prisma.resumeFavorite.count({
+      where: {
+        userId,
+        resumeId,
+      },
+    });
+    return count > 0;
+  },
 };
