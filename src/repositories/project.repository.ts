@@ -267,7 +267,7 @@ export class ProjectRepository {
 
     // const sort = query.sort ?? 'latest';
 
-      let orderByCondition: Prisma.ProjectOrderByWithRelationInput;;
+      let orderByCondition: Prisma.ProjectOrderByWithRelationInput;
 
       if (query.sortBy === 'popular') {
         orderByCondition = {
