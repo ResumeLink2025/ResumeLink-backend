@@ -27,7 +27,8 @@ export const resumeController = {
   getById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const resume = await resumeService.getResumeById(id);
+      const { userId } = req.user!;
+      const resume = await resumeService.getResumeById(id, userId);
       res.json(resume);
     } catch (error) {
       console.error("이력서 조회 실패:", error);
@@ -106,4 +107,17 @@ export const resumeController = {
     }
   },
 
+  toggleFavorite: async (req: Request, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const resumeId = req.params.id;
+
+      const result = await resumeService.toggleFavorite(userId, resumeId);
+      res.json({ success: true, ...result });
+    } catch (error: unknown) {
+      console.error("좋아요 토글 실패:", error);
+      const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      res.status(500).json({ success: false, message });
+    }
+  },
 };

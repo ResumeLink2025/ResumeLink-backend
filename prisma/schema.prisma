@@ -29,6 +29,7 @@ model UserAuth {
   Project          Project[]       @relation("UserToProject")
   Resume           Resume[]        @relation("UserToResume")
   Favorite         Favorite[]
+  resumeFavorites  ResumeFavorite[]
 }
 
 model UserProfile {
@@ -122,22 +123,23 @@ model DesirePosition {
 }
 
 model Resume {
-  id             String              @id @default(uuid()) @db.Uuid
-  userId         String              @db.Uuid
-  user           UserAuth            @relation("UserToResume", fields: [userId], references: [id], onDelete: Cascade)
-  title          String
-  summary        String?
-  experienceNote String?
-  theme          Theme               @default(light)
-  isPublic       Boolean             @default(false)
-  positions      ResumePosition[]    @relation("ResumeToPosition")
-  skills         ResumeSkill[]       @relation("ResumeToSkill")
-  categories     String[]
-  activities     DevelopmentActivity[]
-  certificates   Certificate[]
-  projects       ProjectResume[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @db.Uuid
+  user            UserAuth            @relation("UserToResume", fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  summary         String?
+  experienceNote  String?
+  theme           Theme               @default(light)
+  isPublic        Boolean             @default(false)
+  positions       ResumePosition[]    @relation("ResumeToPosition")
+  skills          ResumeSkill[]       @relation("ResumeToSkill")
+  categories      String[]
+  activities      DevelopmentActivity[]
+  certificates    Certificate[]
+  projects        ProjectResume[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  resumeFavorites ResumeFavorite[]
 
   @@index([userId])
   @@index([createdAt])
@@ -204,6 +206,17 @@ model ProjectResume {
   aiDescription   String
 
   @@unique([resumeId, projectId])
+}
+
+model ResumeFavorite {
+  id        String   @id @default(uuid())
+  userId    String   @db.Uuid
+  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId  String   @db.Uuid
+  resume    Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+
+  @@unique([userId, resumeId])
 }
 
 model Project {

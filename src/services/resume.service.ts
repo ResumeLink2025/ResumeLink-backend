@@ -23,7 +23,7 @@ interface SkillInput {
 interface ActivityInput {
   title: string;
   description?: string;
-  startDate: string | Date;
+  startDate?: string | Date;
   endDate?: string | Date;
 }
 
@@ -60,7 +60,7 @@ interface RawResume {
   activities?: {
     title: string;
     description?: string | null;
-    startDate: Date | null;
+    startDate?: Date | null;
     endDate?: Date | null;
   }[];
   certificates?: {
@@ -71,6 +71,103 @@ interface RawResume {
   }[];
 }
 
+function convertGeneralSkills(skills: string[]): SkillInput[] {
+  return skills.map((name) => ({ skill: { name } }));
+}
+
+function convertProjectsForUpdate(aiProjects: AiProjectInfo[]): ProjectInput[] {
+  return aiProjects.map(proj => ({
+    id: proj.id,
+    projectName: proj.projectName,
+    projectDesc: proj.projectDesc,
+    role: proj.role,
+    generalSkills: (proj.generalSkills ?? []).map(name => ({ skill: { name } })),
+    customSkills: proj.customSkills ?? [],
+  }));
+}
+
+function mapProjects(projects: ProjectInput[]): {
+  id?: string;
+  aiDescription: string;
+  generalSkills: SkillInput[];
+  customSkills: string[];
+}[] {
+  return projects.map((proj) => ({
+    id: proj.id,
+    aiDescription: proj.projectDesc ?? proj.aiDescription ?? "",
+    generalSkills: proj.generalSkills ?? [],
+    customSkills: proj.customSkills ?? [],
+  }));
+}
+
+function mapActivities(activities: ActivityInput[]): {
+  title: string;
+  description: string;
+  startDate?: Date;
+  endDate?: Date;
+}[] {
+  return activities.map((act) => ({
+    title: act.title,
+    description: act.description ?? "",
+    startDate: act.startDate ? (typeof act.startDate === "string" ? new Date(act.startDate) : act.startDate) : undefined,
+    endDate: act.endDate ? (typeof act.endDate === "string" ? new Date(act.endDate) : act.endDate) : undefined,
+  }));
+}
+
+function mapCertificates(certificates: CertificateInput[]): {
+  name: string;
+  date?: Date;
+  grade: string;
+  issuer: string;
+}[] {
+  return certificates.map((cert) => ({
+    name: cert.name,
+    date: cert.date ? (typeof cert.date === "string" ? new Date(cert.date) : cert.date) : undefined,
+    grade: cert.grade ?? "",
+    issuer: cert.issuer ?? "",
+  }));
+}
+
+function formatResumeData(raw: RawResume & { user: { profile: { nickname: string; imageUrl: string | null } | null; }; favoriteCount?: number; isFavorited?: boolean }) {
+  return {
+    id: raw.id,
+    userId: raw.userId,
+    nickname: raw.user?.profile?.nickname,
+    imageUrl: raw.user?.profile?.imageUrl ?? null,
+    title: raw.title,
+    summary: raw.summary ?? undefined,
+    experienceNote: raw.experienceNote ?? undefined,
+    theme: raw.theme ?? undefined,
+    isPublic: raw.isPublic,
+    categories: raw.categories ?? undefined,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    skills: raw.skills?.map((item) => item.skill.name) ?? [],
+    positions: raw.positions?.map((item) => item.position.name) ?? [],
+    projects: raw.projects?.map((prj) => ({
+      id: prj.project?.id,
+      projectName: prj.project?.projectName ?? "",
+      projectDesc: prj.project?.projectDesc ?? "",
+      generalSkills: prj.project?.generalSkills?.map((gs) => gs.skill?.name ?? "") ?? [],
+      customSkills: prj.project?.customSkills ?? [],
+      role: prj.project?.role ?? "",
+    })) ?? [],
+    activities: raw.activities?.map((act) => ({
+      title: act.title,
+      description: act.description ?? "",
+      startDate: act.startDate,
+      endDate: act.endDate ?? undefined,
+    })) ?? [],
+    certificates: raw.certificates?.map((cert) => ({
+      name: cert.name,
+      date: cert.date ?? undefined,
+      grade: cert.grade,
+      issuer: cert.issuer,
+    })) ?? [],
+    favoriteCount: raw.favoriteCount ?? 0,
+    isFavorited: raw.isFavorited ?? false,
+  };
+}
 
 // --- 서비스 함수 및 매핑 함수 구현 ---
 
@@ -84,7 +181,6 @@ export const resumeService = {
       console.error("[createResumeWithAI] 프로필 없음 - userId:", userId);
       throw new Error("프로필이 존재하지 않습니다.");
     }
-
     const skills = Array.isArray(requestBody.skills) ? requestBody.skills : [];
     const positions = Array.isArray(requestBody.positions) ? requestBody.positions : [];
     const categories = Array.isArray(requestBody.categories) ? requestBody.categories : [];
@@ -131,6 +227,7 @@ export const resumeService = {
       requestBody.experienceNote ?? "",
       {
         ...parsed,
+        title: requestBody.title ?? "AI 생성 이력서",
         isPublic: requestBody.isPublic ?? false,
         projects: mappedProjects,
         activities: mappedActivities,
@@ -147,34 +244,67 @@ export const resumeService = {
   },
 
   getResumesByUserId: async (userId: string) => {
-    console.log("[getResumesByUserId] 시작 - userId:", userId);
+  console.log("[getResumesByUserId] 시작 - userId:", userId);
 
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { id: userId },
+  const userProfile = await prisma.userProfile.findUnique({
+    where: { id: userId },
+  });
+  if (!userProfile) {
+    console.error("[getResumesByUserId] 프로필이 존재하지 않습니다.");
+    throw new Error("프로필이 존재하지 않습니다.");
+  }
+
+  const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
+  if (resumes.length === 0) return [];
+
+  // 이력서 ID 배열 추출
+  const resumeIds = resumes.map(r => r.id);
+
+  // 좋아요 수를 한 번에 조회
+  const favoriteCountsRaw = await prisma.resumeFavorite.groupBy({
+    by: ['resumeId'],
+    where: { resumeId: { in: resumeIds } },
+    _count: { resumeId: true },
+  });
+
+  // 좋아요 수를 매핑할 객체 생성
+  const favoriteCounts = favoriteCountsRaw.reduce<Record<string, number>>((acc, cur) => {
+    acc[cur.resumeId] = cur._count.resumeId;
+    return acc;
+  }, {});
+
+  // 현재 사용자가 좋아요한 이력서 ID 목록 한 번에 조회
+  const userFavorites = await prisma.resumeFavorite.findMany({
+    where: { userId, resumeId: { in: resumeIds } },
+    select: { resumeId: true },
+  });
+
+  const userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
+
+  // 메모리에서 좋아요 수와 좋아요 여부를 매핑하여 리턴
+  const result = resumes.map(resume => {
+    return formatResumeData({
+      ...resume,
+      favoriteCount: favoriteCounts[resume.id] ?? 0,
+      isFavorited: userFavoritedSet.has(resume.id),
     });
-    if (!userProfile) {
-      console.error("[getResumesByUserId] 프로필이 존재하지 않습니다.");
-      throw new Error("프로필이 존재하지 않습니다.");
-    }
-    console.log("[getResumesByUserId] userProfile found:", JSON.stringify(userProfile, null, 2));
+  });
 
-    const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
-    console.log("[getResumesByUserId] resumes found:", JSON.stringify(resumes, null, 2));
+  return result;
+},
 
-    return resumes.map(formatResumeData);
-  },
 
-  getResumeById: async (resumeId: string) => {
-    console.log("[getResumeById] 시작 - resumeId:", resumeId);
-
+  getResumeById: async (resumeId: string, userId?: string) => {
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume) {
-      console.error("[getResumeById] 해당 이력서를 찾을 수 없습니다.");
-      throw new Error("해당 이력서를 찾을 수 없습니다.");
-    }
-    console.log("[getResumeById] resume found:", JSON.stringify(resume, null, 2));
+    if (!resume) throw new Error("해당 이력서를 찾을 수 없습니다.");
+    const favoriteCount = await resumeRepository.countFavorites(resumeId);
+    const isFavorited = userId ? await resumeRepository.isFavoritedByUser(userId, resumeId) : false;
 
-    return formatResumeData(resume);
+    return formatResumeData({
+      ...resume,
+      favoriteCount,
+      isFavorited,
+    });
   },
 
   updateResume: async (
@@ -231,136 +361,87 @@ export const resumeService = {
     return deleted;
   },
 
-  getAllResumes: async () => {
-    console.log("[getAllResumes] 시작 - 공개 이력서 전체 조회");
+  getAllResumes: async (userId?: string) => {
+  const resumes = await resumeRepository.getAllPublicResumes();
+  if (resumes.length === 0) return [];
 
-    const resumes = await resumeRepository.getAllPublicResumes();
-    console.log("[getAllResumes] 조회된 이력서 개수:", resumes.length);
+  const resumeIds = resumes.map(r => r.id);
 
-    return resumes.map(formatResumeData);
-  },
+  const favoriteCountsRaw = await prisma.resumeFavorite.groupBy({
+    by: ['resumeId'],
+    where: { resumeId: { in: resumeIds } },
+    _count: { resumeId: true },
+  });
+
+  const favoriteCounts = favoriteCountsRaw.reduce<Record<string, number>>((acc, cur) => {
+    acc[cur.resumeId] = cur._count.resumeId;
+    return acc;
+  }, {});
+
+  let userFavoritedSet = new Set<string>();
+  if (userId) {
+    const userFavorites = await prisma.resumeFavorite.findMany({
+      where: { userId, resumeId: { in: resumeIds } },
+      select: { resumeId: true },
+    });
+    userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
+  }
+
+  return resumes.map(resume =>
+    formatResumeData({
+      ...resume,
+      favoriteCount: favoriteCounts[resume.id] ?? 0,
+      isFavorited: userFavoritedSet.has(resume.id),
+    })
+  );
+},
 
   getPublicResumesByTitleSearch: async (
     searchTerm?: string,
     skillNames?: string[],
-    positionNames?: string[]
+    positionNames?: string[],
+    userId?: string
   ) => {
     console.log("[getPublicResumesByTitleSearch] 시작 - searchTerm:", searchTerm, "skillNames:", skillNames, "positionNames:", positionNames);
 
     const resumes = await resumeRepository.getPublicResumesByTitleSearch(
       searchTerm,
       skillNames,
-      positionNames
+      positionNames,
     );
 
     console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
 
-    return resumes.map(formatResumeData);
+    const result = await Promise.all(
+      resumes.map(async (resume) => {
+        const favoriteCount = await resumeRepository.countFavorites(resume.id);
+        const isFavorited = userId ? await resumeRepository.isFavoritedByUser(userId, resume.id) : false;
+
+        return formatResumeData({
+          ...resume,
+          favoriteCount,
+          isFavorited,
+        });
+      })
+    );
+
+    return result;
+  },
+
+  toggleFavorite: async (userId: string, resumeId: string) => {
+    const isFavorited = await resumeRepository.isFavoritedByUser(userId, resumeId);
+    if (isFavorited) {
+      await resumeRepository.removeFavorite(userId, resumeId);
+      return { favorited: false };
+    } else {
+      await resumeRepository.addFavorite(userId, resumeId);
+      return { favorited: true };
+    }
+  },
+
+  getFavoriteCount: async (resumeId: string) => {
+    return resumeRepository.countFavorites(resumeId);
   }
+
 };
-
-// --- 매핑 함수들 ---
-function convertGeneralSkills(skills: string[]): SkillInput[] {
-  return skills.map((name) => ({ skill: { name } }));
-}
-
-function convertProjectsForUpdate(aiProjects: AiProjectInfo[]): ProjectInput[] {
-  return aiProjects.map(proj => ({
-    id: proj.id,
-    projectName: proj.projectName,
-    projectDesc: proj.projectDesc,
-    role: proj.role,
-    generalSkills: proj.generalSkills.map(name => ({ skill: { name } })),
-    customSkills: proj.customSkills,
-  }));
-}
-
-function mapProjects(projects: ProjectInput[]): {
-  id?: string;
-  aiDescription: string;
-  generalSkills: SkillInput[];
-  customSkills: string[];
-}[] {
-  return projects.map((proj) => ({
-    id: proj.id,
-    aiDescription: proj.projectDesc ?? proj.aiDescription ?? "",
-    generalSkills: proj.generalSkills ?? [],
-    customSkills: proj.customSkills ?? [],
-  }));
-}
-
-function mapActivities(activities: ActivityInput[]): {
-  title: string;
-  description: string;
-  startDate: Date;
-  endDate?: Date;
-}[] {
-  return activities.map((act) => {
-    if (!act.startDate) throw new Error("활동의 시작일(startDate)은 필수입니다.");
-    return {
-      title: act.title,
-      description: act.description ?? "",
-      startDate: typeof act.startDate === "string" ? new Date(act.startDate) : act.startDate,
-      endDate: act.endDate ? (typeof act.endDate === "string" ? new Date(act.endDate) : act.endDate) : undefined,
-    };
-  });
-}
-
-function mapCertificates(certificates: CertificateInput[]): {
-  name: string;
-  date?: Date;
-  grade: string;
-  issuer: string;
-}[] {
-  return certificates.map((cert) => ({
-    name: cert.name,
-    date: cert.date ? (typeof cert.date === "string" ? new Date(cert.date) : cert.date) : undefined,
-    grade: cert.grade ?? "",
-    issuer: cert.issuer ?? "",
-  }));
-}
-
-function formatResumeData(raw: RawResume & { user:{profile: { nickname: string; imageUrl: string | null } | null; }; }) {
-  return {
-    id: raw.id,
-    userId: raw.userId,
-    nickname: raw.user?.profile?.nickname,
-    imageUrl: raw.user?.profile?.imageUrl ?? null,
-    title: raw.title,
-    summary: raw.summary ?? undefined,
-    experienceNote: raw.experienceNote ?? undefined,
-    theme: raw.theme ?? undefined,
-    isPublic: raw.isPublic,
-    categories: raw.categories ?? undefined,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
-    skills: raw.skills?.map((item) => item.skill.name) ?? [],
-    positions: raw.positions?.map((item) => item.position.name) ?? [],
-    projects: raw.projects?.map((prj) => ({
-      id: prj.project?.id,
-      projectName: prj.project?.projectName ?? "",
-      projectDesc: prj.project?.projectDesc ?? "",
-      generalSkills: prj.project?.generalSkills?.map((gs) => gs.skill?.name ?? "") ?? [],
-      customSkills: prj.project?.customSkills ?? [],
-      role: prj.project?.role ?? "",
-    })) ?? [],
-    activities: raw.activities?.map((act) => {
-      if (act.startDate === null) {
-        throw new Error("activities의 startDate가 null입니다.");
-      }
-      return {
-        title: act.title,
-        description: act.description ?? "",
-        startDate: act.startDate,
-        endDate: act.endDate ?? undefined,
-      };
-    }) ?? [],
-    certificates: raw.certificates?.map((cert) => ({
-      name: cert.name,
-      date: cert.date ?? undefined,
-      grade: cert.grade,
-      issuer: cert.issuer,
-    })) ?? [],
-  };
-}
 

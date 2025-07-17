@@ -2,7 +2,7 @@ export interface AiProjectInfo {
   id: string; // 프로젝트 ID (UUID)
   projectName: string;
   projectDesc?: string;
-  startDate: string;
+  startDate?: string | null;
   endDate?: string | null;
   role: string;
   generalSkills: string[];
@@ -24,7 +24,7 @@ export interface ResumeRequestBody {
 
   activities?: {
     title: string;
-    startDate: string;       // "YYYY-MM-DD" 형식 권장
+    startDate?: string;       // "YYYY-MM-DD" 형식 권장
     endDate?: string;
     description?: string;
   }[];
