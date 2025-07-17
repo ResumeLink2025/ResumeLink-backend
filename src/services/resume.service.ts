@@ -278,14 +278,14 @@ export const resumeService = {
     });
   },
 
-  updateResume: async (resumeId: string, userId: string, updateData: any) => {
+  updateResume: async (resumeId: string, userId: string, updateData: Partial<ResumeRequestBody>) => {
     const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const resume = await resumeRepository.getResumeById(resumeId);
     if (!resume || resume.userId !== userProfile.id) throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
 
-    const mappedProjects = updateData.projects ? mapProjects(updateData.projects) : undefined;
+    const mappedProjects = updateData.projects ? mapProjects(convertProjectsForUpdate(updateData.projects)) : undefined;
     const mappedActivities = updateData.activities ? mapActivities(updateData.activities) : undefined;
     const mappedCertificates = updateData.certificates ? mapCertificates(updateData.certificates) : undefined;
 
