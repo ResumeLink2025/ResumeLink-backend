@@ -305,7 +305,7 @@ export class ProjectRepository {
 
   // 좋아요 토글
   async toggleFavorite(userId: string, projectId: string, like: boolean) {
-    const favorite = await prisma.favorite.findUnique({
+    const favorite = await prisma.projectFavorite.findUnique({
       where: {
         userId_projectId: {
           userId,
@@ -316,7 +316,7 @@ export class ProjectRepository {
 
     if (like) {
       if (favorite) return false;
-      await prisma.favorite.create({
+      await prisma.projectFavorite.create({
         data: {
           userId,
           projectId,
@@ -325,7 +325,7 @@ export class ProjectRepository {
       return true;
     } else {
       if (!favorite) return false;
-      await prisma.favorite.delete({
+      await prisma.projectFavorite.delete({
         where: {
           userId_projectId: {
             userId,
