@@ -39,6 +39,30 @@ export class CoffeeChatRepository {
   async getRequestedChats(userId: string) {
     return prisma.coffeeChat.findMany({
       where: { requesterId: userId },
+      include: {
+        receiver: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+                experienceYears: true,
+                employmentStatus: true
+              }
+            },
+            desirePositions: {
+              include: {
+                position: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -47,6 +71,30 @@ export class CoffeeChatRepository {
   async getReceivedChats(userId: string) {
     return prisma.coffeeChat.findMany({
       where: { receiverId: userId },
+      include: {
+        requester: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+                experienceYears: true,
+                employmentStatus: true
+              }
+            },
+            desirePositions: {
+              include: {
+                position: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -60,6 +108,52 @@ export class CoffeeChatRepository {
           { receiverId: userId }
         ]
       },
+      include: {
+        requester: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+                experienceYears: true,
+                employmentStatus: true
+              }
+            },
+            desirePositions: {
+              include: {
+                position: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        receiver: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+                experienceYears: true,
+                employmentStatus: true
+              }
+            },
+            desirePositions: {
+              include: {
+                position: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     });
   }
@@ -67,21 +161,59 @@ export class CoffeeChatRepository {
   // 7. 커피챗 단일 상세 조회 (서비스에서 권한 검증 완료)
   async getCoffeeChatDetail(coffeeChatId: string) {
     return prisma.coffeeChat.findUnique({
-      where: { id: coffeeChatId }
-    });
-  }
-
-  // 8. 커피챗 취소(삭제) - 본인+대기상태만
-  async cancelCoffeeChat(coffeeChatId: string, userId: string) {
-    return prisma.coffeeChat.deleteMany({
-      where: {
-        id: coffeeChatId,
-        requesterId: userId,
-        status: CoffeeChatStatus.pending,
+      where: { id: coffeeChatId },
+      include: {
+        requester: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+                experienceYears: true,
+                employmentStatus: true
+              }
+            },
+            desirePositions: {
+              include: {
+                position: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        receiver: {
+          include: {
+            profile: {
+              select: {
+                nickname: true,
+                imageUrl: true,
+                experienceYears: true,
+                employmentStatus: true
+              }
+            },
+            desirePositions: {
+              include: {
+                position: {
+                  select: {
+                    id: true,
+                    name: true
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     });
   }
+
+  // ...existing code...
 }
 
 const coffeechatRepository = new CoffeeChatRepository();
 export default coffeechatRepository;
+

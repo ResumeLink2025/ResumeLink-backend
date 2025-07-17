@@ -67,7 +67,7 @@ const coffeechatService = {
    * @throws {ServiceError} 대기 상태가 아닌 경우
    */
   _validatePendingStatus(chat: CoffeeChatWithUsers) {
-    if (chat.status !== 'pending') {
+    if (chat.status !== CoffeeChatStatus.pending) {
       throw CoffeeChatErrors.ALREADY_PROCESSED();
     }
   },
@@ -79,7 +79,7 @@ const coffeechatService = {
    * @throws {ServiceError} 취소할 수 없는 상태인 경우
    */
   _validateCancelable(chat: CoffeeChatWithUsers) {
-    if (chat.status !== 'pending') {
+    if (chat.status !== CoffeeChatStatus.pending) {
       throw new ServiceError(400, '이미 처리된 커피챗은 취소할 수 없습니다.');
     }
   },
@@ -210,13 +210,6 @@ const coffeechatService = {
    * @returns 취소된 커피챗 정보
    * @throws {ServiceError} 존재하지 않음, 권한 없음, 이미 처리됨 등의 경우 에러 발생
    */
-  async cancelCoffeeChat(coffeeChatId: string, userId: string) {
-    const chat = await this._getChatOrThrow(coffeeChatId);
-    this._validateRequesterAccess(chat, userId);
-    this._validateCancelable(chat);
-
-    return coffeechatRepository.cancelCoffeeChat(coffeeChatId, userId);
-  },
 };
 
 export default coffeechatService;

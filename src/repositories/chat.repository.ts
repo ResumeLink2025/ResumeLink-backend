@@ -239,25 +239,28 @@ export class ChatRepository {
     }
 
     // 3. Raw SQL을 사용하여 모든 채팅방의 미읽은 메시지 수를 한 번의 쿼리로 계산
-    const unreadCountResults = await prisma.$queryRaw<Array<{chatRoomId: string, unreadCount: number}>>`
-      SELECT 
-        cp."chatRoomId",
-        COUNT(m.id)::integer as "unreadCount"
-      FROM "ChatParticipant" cp
-      LEFT JOIN "Message" m ON m."chatRoomId" = cp."chatRoomId" 
-        AND m."senderId" != cp."userId"
-        AND m."isDeleted" = false
-        AND (
-          cp."lastReadMessageId" IS NULL 
-          OR m."createdAt" > (
-            SELECT "createdAt" 
-            FROM "Message" 
-            WHERE id = cp."lastReadMessageId"
+    const { sql } = require('@prisma/client');
+    const unreadCountResults = await prisma.$queryRaw<Array<{chatRoomId: string, unreadCount: number}>>(
+      sql`
+        SELECT 
+          cp."chatRoomId",
+          COUNT(m.id)::integer as "unreadCount"
+        FROM "ChatParticipant" cp
+        LEFT JOIN "Message" m ON m."chatRoomId" = cp."chatRoomId" 
+          AND m."senderId" != cp."userId"
+          AND m."isDeleted" = false
+          AND (
+            cp."lastReadMessageId" IS NULL 
+            OR m."createdAt" > (
+              SELECT "createdAt" 
+              FROM "Message" 
+              WHERE id = cp."lastReadMessageId"
+            )
           )
-        )
-      WHERE cp."userId" = ${userId} AND cp."leftAt" IS NULL
-      GROUP BY cp."chatRoomId"
-    `;
+        WHERE cp."userId" = ${userId}::uuid AND cp."leftAt" IS NULL
+        GROUP BY cp."chatRoomId"
+      `
+    );
 
     const unreadCountsMap = new Map(
       unreadCountResults.map((result: {chatRoomId: string, unreadCount: number}) => [result.chatRoomId, result.unreadCount])

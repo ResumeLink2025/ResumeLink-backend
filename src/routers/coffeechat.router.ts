@@ -29,9 +29,5 @@ router.get('/:id', async (req: Request, res: Response) => {
   await coffeechatController.getCoffeeChatDetail(req, res);
 });
 
-// 커피챗 신청 취소 (삭제)
-router.delete('/:id', async (req: Request, res: Response) => {
-  await coffeechatController.cancelCoffeeChat(req, res);
-});
 
 export default router;

@@ -44,20 +44,20 @@ export const socketAuthMiddleware = (socket: AuthenticatedSocket, next: (err?: E
 
     const decoded = jwt.verify(actualToken, secret) as any;
     
-    if (!decoded || !decoded.id) {
+    if (!decoded || !decoded.userId) {
       return next(new Error('유효하지 않은 토큰입니다.'));
     }
 
     // 소켓에 사용자 정보 저장
-    socket.userId = decoded.id;
+    socket.userId = decoded.userId;
     socket.user = {
-      id: decoded.id,
+      id: decoded.userId,
       email: decoded.email,
       name: decoded.name,
       nickname: decoded.nickname,
     };
 
-    console.log(`[Socket Auth] 사용자 연결됨: ${decoded.nickname || decoded.email} (ID: ${decoded.id})`);
+    console.log(`[Socket Auth] 사용자 연결됨: ${decoded.nickname || decoded.email} (ID: ${decoded.userId})`);
     next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {

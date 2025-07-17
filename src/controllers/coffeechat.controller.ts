@@ -93,26 +93,6 @@ const coffeechatController = {
     }
   },
 
-  // 5. 커피챗 신청 취소(삭제)
-  cancelCoffeeChat: async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user?.userId;
-
-      if (!id || !userId) {
-        return res.status(400).json({ message: '필수 파라미터가 누락되었습니다.' });
-      }
-
-      await coffeechatService.cancelCoffeeChat(id, userId);
-      res.status(204).send();
-    } catch (error: any) {
-      if (error instanceof ServiceError) {
-        return res.status(error.status).json({ message: error.message });
-      }
-      console.error('취소 실패:', error);
-      res.status(500).json({ message: '취소 중 오류가 발생했습니다.' });
-    }
-  }
 };
 
 export default coffeechatController;
