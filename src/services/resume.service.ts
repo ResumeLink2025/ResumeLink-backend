@@ -244,35 +244,55 @@ export const resumeService = {
   },
 
   getResumesByUserId: async (userId: string) => {
-    console.log("[getResumesByUserId] 시작 - userId:", userId);
+  console.log("[getResumesByUserId] 시작 - userId:", userId);
 
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { id: userId },
+  const userProfile = await prisma.userProfile.findUnique({
+    where: { id: userId },
+  });
+  if (!userProfile) {
+    console.error("[getResumesByUserId] 프로필이 존재하지 않습니다.");
+    throw new Error("프로필이 존재하지 않습니다.");
+  }
+
+  const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
+  if (resumes.length === 0) return [];
+
+  // 이력서 ID 배열 추출
+  const resumeIds = resumes.map(r => r.id);
+
+  // 좋아요 수를 한 번에 조회
+  const favoriteCountsRaw = await prisma.resumeFavorite.groupBy({
+    by: ['resumeId'],
+    where: { resumeId: { in: resumeIds } },
+    _count: { resumeId: true },
+  });
+
+  // 좋아요 수를 매핑할 객체 생성
+  const favoriteCounts = favoriteCountsRaw.reduce<Record<string, number>>((acc, cur) => {
+    acc[cur.resumeId] = cur._count.resumeId;
+    return acc;
+  }, {});
+
+  // 현재 사용자가 좋아요한 이력서 ID 목록 한 번에 조회
+  const userFavorites = await prisma.resumeFavorite.findMany({
+    where: { userId, resumeId: { in: resumeIds } },
+    select: { resumeId: true },
+  });
+
+  const userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
+
+  // 메모리에서 좋아요 수와 좋아요 여부를 매핑하여 리턴
+  const result = resumes.map(resume => {
+    return formatResumeData({
+      ...resume,
+      favoriteCount: favoriteCounts[resume.id] ?? 0,
+      isFavorited: userFavoritedSet.has(resume.id),
     });
-    if (!userProfile) {
-      console.error("[getResumesByUserId] 프로필이 존재하지 않습니다.");
-      throw new Error("프로필이 존재하지 않습니다.");
-    }
-    console.log("[getResumesByUserId] userProfile found:", JSON.stringify(userProfile, null, 2));
+  });
 
-    const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
-    console.log("[getResumesByUserId] resumes found:", JSON.stringify(resumes, null, 2));
+  return result;
+},
 
-    const result = await Promise.all(
-      resumes.map(async (resume) => {
-        const favoriteCount = await resumeRepository.countFavorites(resume.id);
-        const isFavorited = await resumeRepository.isFavoritedByUser(userId, resume.id);
-
-        return formatResumeData({
-          ...resume,
-          favoriteCount,
-          isFavorited,
-        });
-      })
-    );
-
-    return result;
-  },
 
   getResumeById: async (resumeId: string, userId?: string) => {
     const resume = await resumeRepository.getResumeById(resumeId);
@@ -342,23 +362,39 @@ export const resumeService = {
   },
 
   getAllResumes: async (userId?: string) => {
-    const resumes = await resumeRepository.getAllPublicResumes();
+  const resumes = await resumeRepository.getAllPublicResumes();
+  if (resumes.length === 0) return [];
 
-    const result = await Promise.all(
-      resumes.map(async (resume) => {
-        const favoriteCount = await resumeRepository.countFavorites(resume.id);
-        const isFavorited = userId ? await resumeRepository.isFavoritedByUser(userId, resume.id) : false;
+  const resumeIds = resumes.map(r => r.id);
 
-        return formatResumeData({
-          ...resume,
-          favoriteCount,
-          isFavorited,
-        });
-      })
-    );
+  const favoriteCountsRaw = await prisma.resumeFavorite.groupBy({
+    by: ['resumeId'],
+    where: { resumeId: { in: resumeIds } },
+    _count: { resumeId: true },
+  });
 
-    return result;
-  },
+  const favoriteCounts = favoriteCountsRaw.reduce<Record<string, number>>((acc, cur) => {
+    acc[cur.resumeId] = cur._count.resumeId;
+    return acc;
+  }, {});
+
+  let userFavoritedSet = new Set<string>();
+  if (userId) {
+    const userFavorites = await prisma.resumeFavorite.findMany({
+      where: { userId, resumeId: { in: resumeIds } },
+      select: { resumeId: true },
+    });
+    userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
+  }
+
+  return resumes.map(resume =>
+    formatResumeData({
+      ...resume,
+      favoriteCount: favoriteCounts[resume.id] ?? 0,
+      isFavorited: userFavoritedSet.has(resume.id),
+    })
+  );
+},
 
   getPublicResumesByTitleSearch: async (
     searchTerm?: string,
@@ -406,5 +442,6 @@ export const resumeService = {
   getFavoriteCount: async (resumeId: string) => {
     return resumeRepository.countFavorites(resumeId);
   }
+
 };
 

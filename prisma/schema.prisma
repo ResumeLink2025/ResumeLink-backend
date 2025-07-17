@@ -29,7 +29,7 @@ model UserAuth {
   Project          Project[]       @relation("UserToProject")
   Resume           Resume[]        @relation("UserToResume")
   Favorite         Favorite[]
-  resumefavorites  ResumeFavorite[]
+  resumeFavorites  ResumeFavorite[]
 }
 
 model UserProfile {
@@ -139,7 +139,7 @@ model Resume {
   projects        ProjectResume[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  resumefavorites ResumeFavorite[]
+  resumeFavorites ResumeFavorite[]
 
   @@index([userId])
   @@index([createdAt])
@@ -211,9 +211,9 @@ model ProjectResume {
 model ResumeFavorite {
   id        String   @id @default(uuid())
   userId    String   @db.Uuid
-  user      UserAuth @relation(fields: [userId], references: [id])
+  user      UserAuth @relation(fields: [userId], references: [id], onDelete: Cascade)
   resumeId  String   @db.Uuid
-  resume    Resume   @relation(fields: [resumeId], references: [id])
+  resume    Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 
 
   @@unique([userId, resumeId])

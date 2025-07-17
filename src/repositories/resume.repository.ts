@@ -359,12 +359,12 @@ export const resumeRepository = {
   },
 
   isFavoritedByUser: async (userId: string, resumeId: string) => {
-    const count = await prisma.resumeFavorite.count({
+    const favorite = await prisma.resumeFavorite.findFirst({
       where: {
         userId,
         resumeId,
       },
     });
-    return count > 0;
+    return !!favorite;
   },
 };

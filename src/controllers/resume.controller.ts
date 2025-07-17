@@ -114,22 +114,10 @@ export const resumeController = {
 
       const result = await resumeService.toggleFavorite(userId, resumeId);
       res.json({ success: true, ...result });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("좋아요 토글 실패:", error);
-      res.status(500).json({ success: false, message: error.message });
-    }
-  },
-
-  removeFavorite: async (req: Request, res: Response) => {
-    try {
-      const userId = req.user!.userId;
-      const resumeId = req.params.id;
-
-      await resumeService.toggleFavorite(userId, resumeId);
-      res.json({ success: true, favorited: false });
-    } catch (error: any) {
-      console.error("좋아요 삭제 실패:", error);
-      res.status(500).json({ success: false, message: error.message });
+      const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      res.status(500).json({ success: false, message });
     }
   },
 };
