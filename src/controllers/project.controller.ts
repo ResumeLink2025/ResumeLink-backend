@@ -105,7 +105,19 @@ export class ProjectController {
       const userId = req.user?.userId as string;
       const query = req.query;
 
-      const projects = await this.projectService.getProjects(userId, query);
+      const skills = Array.isArray(req.query.skill)
+      ? []
+      : typeof req.query.skill === 'string'
+        ? req.query.skill.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      const myQuery = {
+        ...query,
+        skill: skills,
+      };
+
+
+      const projects = await this.projectService.getProjects(userId, myQuery);
 
       return res.status(200).json(projects);
     } catch (error: any) {

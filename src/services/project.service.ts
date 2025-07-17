@@ -166,9 +166,17 @@ export class ProjectService {
     const resultArray: ProjectDetailDto[] = []
 
     for ( let project of projectArray ) {
-      resultArray.push(transformProjectToDto(project))
-    }
+      const result = transformProjectToDto(project)
+      
+      const newResult = {
+        ...result,
+        isFavorite: project.favorites.length > 0,
+        favoriteCount: project._count.favorites,
+      };
 
+      resultArray.push(newResult)
+    }
+    
     return resultArray
   }
 
@@ -203,7 +211,7 @@ type ProjectWithSkills = Project & {
   customSkills: string[];
 };
 
-function transformProjectToDto(project: ProjectWithSkills): ProjectDetailDto {
+function transformProjectToDto(project: ProjectWithSkills) {
   const {
     generalSkills,
     customSkills,
