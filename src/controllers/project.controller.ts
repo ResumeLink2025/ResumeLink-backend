@@ -105,14 +105,15 @@ export class ProjectController {
       const userId = req.user?.userId as string;
       const query = req.query;
 
-      const skills = Array.isArray(req.query.skill)
+      const skills = Array.isArray(req.query.skillNames)
       ? []
-      : typeof req.query.skill === 'string'
-        ? req.query.skill.split(',').map(s => s.trim()).filter(Boolean)
+      : typeof req.query.skillNames === 'string'
+        ? req.query.skillNames.split(',').map(s => s.trim()).filter(Boolean)
         : [];
 
       const myQuery = {
         ...query,
+        desc: query.searchTerm,
         skill: skills,
       };
 

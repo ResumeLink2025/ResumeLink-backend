@@ -28,7 +28,7 @@ model UserAuth {
   desirePositions  DesirePosition[]
   Project          Project[]       @relation("UserToProject")
   Resume           Resume[]        @relation("UserToResume")
-  Favorite         Favorite[]
+  Favorite         ProjectFavorite[]
   resumeFavorites  ResumeFavorite[]
 }
 
@@ -235,7 +235,7 @@ model Project {
   generalSkills   ProjectSkill[]
   customSkills    String[]
   tags            String[]
-  favorites       Favorite[]
+  favorites       ProjectFavorite[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   projectResume   ProjectResume[]
@@ -262,7 +262,7 @@ enum ProjectStatus {
   ON_HOLD
 }
 
-model Favorite {
+model ProjectFavorite {
   id        String   @id @default(uuid())
   userId    String   @db.Uuid
   user      UserAuth @relation(fields: [userId], references: [id])
