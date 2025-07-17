@@ -276,6 +276,19 @@ export class ProjectRepository {
             skill: true,
           },
         },
+        favorites: {
+          where: {
+            userId,
+          },
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            favorites: true,
+          },
+        },
       },
     });
   }
