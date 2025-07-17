@@ -326,8 +326,16 @@ export class ProjectRepository {
       prisma.project.findUnique({ where: { id: projectId } }),
     ]);
 
-    if (!userExists) throw new Error('존재하지 않는 사용자입니다.');
-    if (!projectExists) throw new Error('존재하지 않는 프로젝트입니다.');
+    if (!userExists) {
+      const error: any = new Error('존재하지 않는 사용자입니다.');
+      error.status = 404;
+      throw error;
+    }
+    if (!projectExists) {
+      const error: any = new Error('존재하지 않는 프로젝트입니다.');
+      error.status = 404;
+      throw error;
+    }
 
     const favorite = await prisma.projectFavorite.findUnique({
       where: {
