@@ -1,4 +1,4 @@
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -8,4 +8,5 @@ const s3Client = new S3Client({
   },
 });
 
-export default s3Client;
+export default s3Client
+

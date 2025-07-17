@@ -1,5 +1,6 @@
 import * as repo from '../repositories/profile.repository';
 import prisma from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 interface ProfileData {
     nickname: string;
@@ -20,7 +21,7 @@ export const updateUserProfile = async (
     userSkills: string[],
     desirePositions: string[]
 ) => {
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const profile = await repo.upsertUserProfile(tx, userId, profileData);
 
         await repo.deleteUserSkillsByUserId(tx, userId);
