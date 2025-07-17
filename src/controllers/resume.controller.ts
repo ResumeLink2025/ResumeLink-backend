@@ -74,7 +74,8 @@ export const resumeController = {
 
   getAllPublic: async (req: Request, res: Response) => {
     try {
-      const resumes = await resumeService.getAllResumes();
+      const { userId } = req.user!;
+      const resumes = await resumeService.getAllResumes(userId);
       res.json(resumes);
     } catch (error) {
       console.error("이력서 목록 조회 실패:", error);
@@ -84,7 +85,8 @@ export const resumeController = {
 
   getPublicResumesByTitleSearch: async (req: Request, res: Response) => {
     try {
-      const { searchTerm, skillNames, positionNames } = req.query;
+      const { userId } = req.user!;
+      const { searchTerm, skillNames, positionNames, sortBy } = req.query;
 
       const skillArray = typeof skillNames === "string" && skillNames.trim() !== ""
         ? skillNames.split(",").map(s => s.trim())
@@ -94,10 +96,14 @@ export const resumeController = {
         ? positionNames.split(",").map(s => s.trim())
         : undefined;
 
+      const sortCriteria = typeof sortBy === "string" ? sortBy.toLowerCase() : "latest";
+
       const resumes = await resumeService.getPublicResumesByTitleSearch(
         typeof searchTerm === "string" && searchTerm.trim() !== "" ? searchTerm : undefined,
         skillArray,
-        positionArray
+        positionArray,
+        userId,
+        sortCriteria,
       );
 
       res.json(resumes);

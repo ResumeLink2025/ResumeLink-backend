@@ -1,4 +1,5 @@
 import prisma from "../lib/prisma";
+import { Prisma } from "@prisma/client";
 import { buildNarrativeJsonPrompt } from "../utils/prompt";
 import { generateGeminiText } from "../lib/gemini";
 import { resumeRepository } from "../repositories/resume.repository";
@@ -69,6 +70,7 @@ interface RawResume {
     grade?: string | null;
     issuer?: string | null;
   }[];
+  favoriteCount?: number;
 }
 
 function convertGeneralSkills(skills: string[]): SkillInput[] {
@@ -128,7 +130,7 @@ function mapCertificates(certificates: CertificateInput[]): {
   }));
 }
 
-function formatResumeData(raw: RawResume & { user: { profile: { nickname: string; imageUrl: string | null } | null; }; favoriteCount?: number; isFavorited?: boolean }) {
+function formatResumeData(raw: RawResume & { user: { profile: { nickname: string; imageUrl: string | null } | null; }; isFavorited?: boolean }) {
   return {
     id: raw.id,
     userId: raw.userId,
@@ -244,85 +246,46 @@ export const resumeService = {
   },
 
   getResumesByUserId: async (userId: string) => {
-  console.log("[getResumesByUserId] 시작 - userId:", userId);
+    const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
+    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
-  const userProfile = await prisma.userProfile.findUnique({
-    where: { id: userId },
-  });
-  if (!userProfile) {
-    console.error("[getResumesByUserId] 프로필이 존재하지 않습니다.");
-    throw new Error("프로필이 존재하지 않습니다.");
-  }
+    const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
+    if (resumes.length === 0) return [];
 
-  const resumes = await resumeRepository.getResumesByProfile(userProfile.id);
-  if (resumes.length === 0) return [];
+    const resumeIds = resumes.map(r => r.id);
+    const userFavorites = await resumeRepository.getUserFavorites(userId, resumeIds);
+    const userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
 
-  // 이력서 ID 배열 추출
-  const resumeIds = resumes.map(r => r.id);
-
-  // 좋아요 수를 한 번에 조회
-  const favoriteCountsRaw = await prisma.resumeFavorite.groupBy({
-    by: ['resumeId'],
-    where: { resumeId: { in: resumeIds } },
-    _count: { resumeId: true },
-  });
-
-  // 좋아요 수를 매핑할 객체 생성
-  const favoriteCounts = favoriteCountsRaw.reduce<Record<string, number>>((acc, cur) => {
-    acc[cur.resumeId] = cur._count.resumeId;
-    return acc;
-  }, {});
-
-  // 현재 사용자가 좋아요한 이력서 ID 목록 한 번에 조회
-  const userFavorites = await prisma.resumeFavorite.findMany({
-    where: { userId, resumeId: { in: resumeIds } },
-    select: { resumeId: true },
-  });
-
-  const userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
-
-  // 메모리에서 좋아요 수와 좋아요 여부를 매핑하여 리턴
-  const result = resumes.map(resume => {
-    return formatResumeData({
-      ...resume,
-      favoriteCount: favoriteCounts[resume.id] ?? 0,
-      isFavorited: userFavoritedSet.has(resume.id),
-    });
-  });
-
-  return result;
-},
-
+    return resumes.map(resume =>
+      formatResumeData({
+        ...resume,
+        favoriteCount: resume.favoriteCount ?? 0,
+        isFavorited: userFavoritedSet.has(resume.id),
+      })
+    );
+  },
 
   getResumeById: async (resumeId: string, userId?: string) => {
     const resume = await resumeRepository.getResumeById(resumeId);
     if (!resume) throw new Error("해당 이력서를 찾을 수 없습니다.");
-    const favoriteCount = await resumeRepository.countFavorites(resumeId);
+
     const isFavorited = userId ? await resumeRepository.isFavoritedByUser(userId, resumeId) : false;
 
     return formatResumeData({
       ...resume,
-      favoriteCount,
+      favoriteCount: resume.favoriteCount ?? 0,
       isFavorited,
     });
   },
 
-  updateResume: async (
-    resumeId: string,
-    userId: string,
-    updateData: Partial<ResumeRequestBody>
-  ) => {
+  updateResume: async (resumeId: string, userId: string, updateData: Partial<ResumeRequestBody>) => {
     const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
     if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const resume = await resumeRepository.getResumeById(resumeId);
     if (!resume || resume.userId !== userProfile.id) throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
 
-    // 여기서만 generalSkills string[] → SkillInput[] 변환
-    const mappedProjects = updateData.projects
-      ? mapProjects(convertProjectsForUpdate(updateData.projects as AiProjectInfo[]))
-      : undefined;
-
+    const mappedProjects = updateData.projects ? mapProjects(convertProjectsForUpdate(updateData.projects)) : undefined;
     const mappedActivities = updateData.activities ? mapActivities(updateData.activities) : undefined;
     const mappedCertificates = updateData.certificates ? mapCertificates(updateData.certificates) : undefined;
 
@@ -337,111 +300,88 @@ export const resumeService = {
   },
 
   deleteResume: async (resumeId: string, userId: string) => {
-    console.log("[deleteResume] 시작 - resumeId:", resumeId, "userId:", userId);
-
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { id: userId },
-    });
-    if (!userProfile) {
-      console.error("[deleteResume] 프로필이 존재하지 않습니다.");
-      throw new Error("프로필이 존재하지 않습니다.");
-    }
-    console.log("[deleteResume] userProfile found:", JSON.stringify(userProfile, null, 2));
+    const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
+    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
 
     const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.userId !== userProfile.id) {
-      console.error("[deleteResume] 삭제 권한이 없거나 이력서를 찾을 수 없습니다.");
-      throw new Error("삭제 권한이 없거나 이력서를 찾을 수 없습니다.");
-    }
-    console.log("[deleteResume] resume found:", JSON.stringify(resume, null, 2));
+    if (!resume || resume.userId !== userProfile.id) throw new Error("삭제 권한이 없거나 이력서를 찾을 수 없습니다.");
 
-    const deleted = await resumeRepository.deleteResume(resumeId);
-    console.log("[deleteResume] 삭제 완료:", JSON.stringify(deleted, null, 2));
-
-    return deleted;
+    return await resumeRepository.deleteResume(resumeId);
   },
 
   getAllResumes: async (userId?: string) => {
-  const resumes = await resumeRepository.getAllPublicResumes();
-  if (resumes.length === 0) return [];
+    const resumes = await resumeRepository.getAllPublicResumes();
+    if (resumes.length === 0) return [];
 
-  const resumeIds = resumes.map(r => r.id);
+    const resumeIds = resumes.map(r => r.id);
+    const userFavorites = userId ? await resumeRepository.getUserFavorites(userId, resumeIds) : [];
+    const userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
 
-  const favoriteCountsRaw = await prisma.resumeFavorite.groupBy({
-    by: ['resumeId'],
-    where: { resumeId: { in: resumeIds } },
-    _count: { resumeId: true },
-  });
-
-  const favoriteCounts = favoriteCountsRaw.reduce<Record<string, number>>((acc, cur) => {
-    acc[cur.resumeId] = cur._count.resumeId;
-    return acc;
-  }, {});
-
-  let userFavoritedSet = new Set<string>();
-  if (userId) {
-    const userFavorites = await prisma.resumeFavorite.findMany({
-      where: { userId, resumeId: { in: resumeIds } },
-      select: { resumeId: true },
-    });
-    userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
-  }
-
-  return resumes.map(resume =>
-    formatResumeData({
-      ...resume,
-      favoriteCount: favoriteCounts[resume.id] ?? 0,
-      isFavorited: userFavoritedSet.has(resume.id),
-    })
-  );
-},
+    return resumes.map(resume =>
+      formatResumeData({
+        ...resume,
+        favoriteCount: resume.favoriteCount ?? 0,
+        isFavorited: userFavoritedSet.has(resume.id),
+      })
+    );
+  },
 
   getPublicResumesByTitleSearch: async (
     searchTerm?: string,
     skillNames?: string[],
     positionNames?: string[],
-    userId?: string
+    userId?: string,
+    sortBy: string = "latest"
   ) => {
-    console.log("[getPublicResumesByTitleSearch] 시작 - searchTerm:", searchTerm, "skillNames:", skillNames, "positionNames:", positionNames);
+    const orderBy: Prisma.ResumeOrderByWithRelationInput =
+      sortBy === "popular"
+        ? { favoriteCount: "desc" }
+        : { createdAt: "desc" };
 
     const resumes = await resumeRepository.getPublicResumesByTitleSearch(
       searchTerm,
       skillNames,
       positionNames,
+      orderBy
     );
 
-    console.log("[getPublicResumesByTitleSearch] 조회된 이력서 개수:", resumes.length);
+    if (resumes.length === 0) return [];
 
-    const result = await Promise.all(
-      resumes.map(async (resume) => {
-        const favoriteCount = await resumeRepository.countFavorites(resume.id);
-        const isFavorited = userId ? await resumeRepository.isFavoritedByUser(userId, resume.id) : false;
+    const resumeIds = resumes.map(r => r.id);
+    const userFavorites = userId ? await resumeRepository.getUserFavorites(userId, resumeIds) : [];
+    const userFavoritedSet = new Set(userFavorites.map(fav => fav.resumeId));
 
-        return formatResumeData({
-          ...resume,
-          favoriteCount,
-          isFavorited,
-        });
+    return resumes.map(resume =>
+      formatResumeData({
+        ...resume,
+        favoriteCount: resume.favoriteCount ?? 0,
+        isFavorited: userFavoritedSet.has(resume.id),
       })
     );
-
-    return result;
   },
 
   toggleFavorite: async (userId: string, resumeId: string) => {
-    const isFavorited = await resumeRepository.isFavoritedByUser(userId, resumeId);
-    if (isFavorited) {
-      await resumeRepository.removeFavorite(userId, resumeId);
-      return { favorited: false };
-    } else {
-      await resumeRepository.addFavorite(userId, resumeId);
-      return { favorited: true };
-    }
-  },
+    return prisma.$transaction(async (tx) => {
+      const isFavorited = await tx.resumeFavorite.findFirst({
+        where: { userId, resumeId },
+      });
 
-  getFavoriteCount: async (resumeId: string) => {
-    return resumeRepository.countFavorites(resumeId);
+      if (isFavorited) {
+        await tx.resumeFavorite.deleteMany({ where: { userId, resumeId } });
+        await tx.resume.update({
+          where: { id: resumeId },
+          data: { favoriteCount: { decrement: 1 } },
+        });
+        return { favorited: false };
+      } else {
+        await tx.resumeFavorite.create({ data: { userId, resumeId } });
+        await tx.resume.update({
+          where: { id: resumeId },
+          data: { favoriteCount: { increment: 1 } },
+        });
+        return { favorited: true };
+      }
+    });
   }
-
-};
+}
 
