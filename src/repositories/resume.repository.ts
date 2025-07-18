@@ -24,12 +24,6 @@ export const resumeRepository = {
     experienceNote: string | undefined,
     data: ResumeRequestBody
   ) => {
-
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { id: profileId },
-      select: { imageUrl: true },
-    });
-    const resumeImgUrl = data.resumeImgUrl ?? userProfile?.imageUrl ?? null;
     // 포지션 레코드 조회
     const positionRecords: Position[] = await prisma.position.findMany({
       where: {
@@ -55,7 +49,7 @@ export const resumeRepository = {
       data: {
         userId: profileId,
         title: data.title ?? "AI 생성 이력서",
-        resumeImgUrl,
+        resumeImgUrl: data.resumeImgUrl ?? null,
         summary: data.summary,
         isPublic: data.isPublic ?? false,
         experienceNote: experienceNote ?? "",
@@ -168,7 +162,7 @@ export const resumeRepository = {
     });
   },
 
-  updateResume: async (resumeId: string, updateData: any) => {
+  updateResume: async (resumeId: string, updateData: Partial<ResumeRequestBody>) => {
     const {
       title,
       resumeImgUrl,
@@ -184,7 +178,7 @@ export const resumeRepository = {
       certificates,
     } = updateData;
 
-    const updatePayload: any = {};
+    const updatePayload: Prisma.ResumeUpdateInput = {};
     if (title !== undefined) updatePayload.title = title;
     if (resumeImgUrl !== undefined) updatePayload.resumeImgUrl = resumeImgUrl;
     if (summary !== undefined) updatePayload.summary = summary;
