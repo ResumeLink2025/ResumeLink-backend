@@ -83,7 +83,7 @@ export class AuthController {
           path: '/',
         });
 
-      return res.redirect(`http://localhost:3000/success?userId=${userId}&accessToken=${accessToken}`);
+      return res.redirect(`https://resumelink.co.kr/success?userId=${userId}&accessToken=${accessToken}`);
 
     } catch (e: any) {
       if (e.message == "존재하지 않는 유저입니다.") {
@@ -108,7 +108,7 @@ export class AuthController {
           path: '/',
         });
 
-      return res.redirect(`http://localhost:3000/success?userId=${userId}&accessToken=${accessToken}`);
+      return res.redirect(`https://resumelink.co.kr/success?userId=${userId}&accessToken=${accessToken}`);
 
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
