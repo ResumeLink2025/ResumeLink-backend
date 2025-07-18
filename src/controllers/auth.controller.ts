@@ -108,7 +108,7 @@ export class AuthController {
           path: '/',
         });
 
-      return res.redirect(`https://resumelink.co.kr/success?userId=${userId}&accessToken=${accessToken}`);
+      return res.redirect(`${process.env.FRONTEND_SUCCESS_REDIRECT_URL}?userId=${userId}&accessToken=${accessToken}`);
 
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.';
