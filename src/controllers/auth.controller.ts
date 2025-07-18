@@ -83,7 +83,7 @@ export class AuthController {
           path: '/',
         });
 
-      return res.redirect(`https://resumelink.co.kr/success?userId=${userId}&accessToken=${accessToken}`);
+      return res.redirect(`${process.env.FRONTEND_SUCCESS_REDIRECT_URL}?userId=${userId}&accessToken=${accessToken}`);
 
     } catch (e: any) {
       if (e.message == "존재하지 않는 유저입니다.") {
