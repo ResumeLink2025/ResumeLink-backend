@@ -7,6 +7,7 @@ import createApp from './app';
 import { setupSocketHandlers } from './handlers/socket.handler';
 import { CacheScheduler } from './utils/cache-scheduler';
 import { ChatRepository } from './repositories/chat.repository';
+import { ALLOWED_ORIGINS } from './config/cors.config';
 
 const PORT = process.env.PORT || 8080; // 프론트엔드 설정에 맞춤 (.env.example의 NEXT_PUBLIC_API_URL 설정 참고)
 
@@ -19,17 +20,11 @@ const PORT = process.env.PORT || 8080; // 프론트엔드 설정에 맞춤 (.env
  */
 
 
-// Express, Socket.IO allowedOrigins
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'https://resumelink.co.kr',
-];
 
 // Socket.IO 서버 설정 (실시간 통신용)
 const io = new Server(undefined, {
   cors: {
-    origin: allowedOrigins,
+    origin: ALLOWED_ORIGINS,
     credentials: true,
   },
 });

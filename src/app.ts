@@ -10,6 +10,7 @@ import profileRouter from './routers/profile.router';
 import imageRouter from './routers/image.router';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
+import { ALLOWED_ORIGINS } from './config/cors.config';
 
 dotenv.config();
 
@@ -17,15 +18,10 @@ dotenv.config();
 export default function createApp(io?: Server) {
   const app = express();
 
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'https://resumelink.co.kr',
-  ];
-
   app.use(cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true); // Postman, curl 같은 origin 없는 요청 허용
-      if (allowedOrigins.includes(origin)) {
+      if (ALLOWED_ORIGINS.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
