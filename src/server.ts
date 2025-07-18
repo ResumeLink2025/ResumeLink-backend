@@ -18,10 +18,18 @@ const PORT = process.env.PORT || 8080; // 프론트엔드 설정에 맞춤 (.env
  * - Socket.IO: 실시간 채팅 기능 (새로 추가)
  */
 
+
+// Express, Socket.IO allowedOrigins
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://resumelink.co.kr',
+];
+
 // Socket.IO 서버 설정 (실시간 통신용)
 const io = new Server(undefined, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:5173'], // Next.js와 Vite 기본 포트
+    origin: allowedOrigins,
     credentials: true,
   },
 });
