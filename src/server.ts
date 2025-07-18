@@ -7,6 +7,7 @@ import createApp from './app';
 import { setupSocketHandlers } from './handlers/socket.handler';
 import { CacheScheduler } from './utils/cache-scheduler';
 import { ChatRepository } from './repositories/chat.repository';
+import { ALLOWED_ORIGINS } from './config/cors.config';
 
 const PORT = process.env.PORT || 8080; // 프론트엔드 설정에 맞춤 (.env.example의 NEXT_PUBLIC_API_URL 설정 참고)
 
@@ -18,10 +19,12 @@ const PORT = process.env.PORT || 8080; // 프론트엔드 설정에 맞춤 (.env
  * - Socket.IO: 실시간 채팅 기능 (새로 추가)
  */
 
+
+
 // Socket.IO 서버 설정 (실시간 통신용)
 const io = new Server(undefined, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:5173'], // Next.js와 Vite 기본 포트
+    origin: ALLOWED_ORIGINS,
     credentials: true,
   },
 });
