@@ -12,8 +12,21 @@ interface ProfileData {
     employmentStatus?: string;
     imageUrl?: string;
     summary?: string;
-}
+};
 
+interface UserSkill {
+  skill: {
+    id: number;
+    name: string;
+  };
+};
+
+interface DesirePosition {
+  position: {
+    id: string;
+    name: string;
+  };
+};
 export const updateUserProfile = async (
     userId: string,
     profileData: ProfileData,
@@ -40,6 +53,46 @@ export const updateUserProfile = async (
 };
 
 export const getUserProfile = async (userId: string) => {
-    const profile = await repo.findUserProfileById(prisma, userId);
-    return profile;
+  const rawProfile = await repo.findUserProfileById(prisma, userId);
+
+  if (!rawProfile) return null;
+
+  const { 
+    id,
+    nickname,
+    birthday,
+    gender,
+    customSkill,
+    customInterest,
+    customPosition,
+    experienceYears,
+    employmentStatus,
+    imageUrl,
+    summary,
+    updatedAt,
+    user
+  } = rawProfile;
+
+  const customSkillArray = customSkill ? Object.keys(customSkill).filter(key => customSkill[key]) : [];
+  const customInterestArray = customInterest ? Object.keys(customInterest).filter(key => customInterest[key]) : [];
+  const customPositionStr = customPosition?.preferred || null;
+  const generalSkills = user?.userSkills?.map((us: UserSkill) => us.skill.name) || [];
+  const desirePositions = user?.desirePositions?.map((dp: DesirePosition) => dp.position.name) || [];
+
+  return {
+      id,
+      nickname,
+      birthday,
+      gender,
+      customSkill: customSkillArray,
+      customInterest: customInterestArray,
+      customPosition: customPositionStr,
+      experienceYears,
+      employmentStatus,
+      imageUrl,
+      summary,
+      updatedAt,
+      generalSkills,
+      desirePositions,
+  };
 };
