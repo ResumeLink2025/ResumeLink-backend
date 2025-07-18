@@ -362,27 +362,37 @@ export const resumeService = {
   },
 
   toggleFavorite: async (userId: string, resumeId: string) => {
-    return prisma.$transaction(async (tx) => {
-      const isFavorited = await tx.resumeFavorite.findFirst({
-        where: { userId, resumeId },
-      });
+return prisma.$transaction(async (tx) => {
+    const isFavorited = await tx.resumeFavorite.findFirst({
+      where: { userId, resumeId },
+    });
 
-      if (isFavorited) {
-        await tx.resumeFavorite.deleteMany({ where: { userId, resumeId } });
+    if (isFavorited) {
+      // 삭제 시 삭제된 개수 확인
+      const deleteResult = await tx.resumeFavorite.deleteMany({ where: { userId, resumeId } });
+
+      if (deleteResult.count > 0) {
         await tx.resume.update({
           where: { id: resumeId },
           data: { favoriteCount: { decrement: 1 } },
         });
-        return { favorited: false };
-      } else {
+      }
+
+      return { favorited: false };
+    } else {
+      // 중복 생성 방지 위해 먼저 조회(선택 사항)
+      const existing = await tx.resumeFavorite.findFirst({ where: { userId, resumeId } });
+      if (!existing) {
         await tx.resumeFavorite.create({ data: { userId, resumeId } });
         await tx.resume.update({
           where: { id: resumeId },
           data: { favoriteCount: { increment: 1 } },
         });
-        return { favorited: true };
       }
-    });
-  }
+
+      return { favorited: true };
+    }
+  });
+}
 }
 
