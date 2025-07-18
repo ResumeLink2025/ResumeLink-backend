@@ -72,7 +72,7 @@ export class ChatRepository {
 
   // 커피챗 수락 시 채팅방 생성
   async createChatRoomFromCoffeeChat(coffeeChatId: string, participant1Id: string, participant2Id: string): Promise<any> {
-    return prisma.chatRoom.create({
+    const chatRoom = await prisma.chatRoom.create({
       data: {
         coffeeChatId,
         participants: {
@@ -103,6 +103,12 @@ export class ChatRepository {
         }
       }
     });
+
+    // 캐시 무효화: 두 참여자의 채팅방 목록 캐시 삭제
+    this.invalidateChatRoomsCache(participant1Id);
+    this.invalidateChatRoomsCache(participant2Id);
+
+    return chatRoom;
   }
 
   // 특정 채팅방 조회 (상세 정보 포함) - 캐싱 적용
@@ -310,7 +316,7 @@ export class ChatRepository {
 
   // 채팅방 나가기
   async leaveChatRoom(chatRoomId: string, userId: string): Promise<{ shouldArchiveRoom: boolean }> {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. 현재 사용자의 참여자 레코드 찾기
       const participant = await tx.chatParticipant.findFirst({
         where: {
@@ -353,6 +359,13 @@ export class ChatRepository {
 
       return { shouldArchiveRoom };
     });
+
+    // 캐시 무효화: 해당 사용자 목록/참여자/상세 캐시 삭제
+    this.invalidateChatRoomsCache(userId);
+    this.invalidateParticipantCache(chatRoomId, userId);
+    this.invalidateChatRoomDetailsCache(chatRoomId);
+
+    return result;
   }
 
   // 채팅방의 미읽은 메시지 수 계산
