@@ -11,6 +11,7 @@ export interface AiProjectInfo {
 
 export interface ResumeRequestBody {
   title: string;            // 이력서 제목
+  resumeImgUrl?: string | null; // 이력서 이미지 URL (선택적)
   summary?: string;         // UserProfile에서 불러오되 편집 가능
   experienceNote?: string;  // 개발 관련 자유기술
   isPublic?: boolean;       // 공개 여부 (기본값 false)

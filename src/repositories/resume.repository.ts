@@ -3,7 +3,7 @@ import prisma from "../lib/prisma";
 import type { Prisma, Skill, Position } from "@prisma/client";
 import type { ResumeRequestBody } from "../../types/resume";
 
-const userProfileInclude = {
+const userProfileSelect = {
   user: {
     select: {
       id: true,
@@ -24,6 +24,12 @@ export const resumeRepository = {
     experienceNote: string | undefined,
     data: ResumeRequestBody
   ) => {
+
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { id: profileId },
+      select: { imageUrl: true },
+    });
+    const resumeImgUrl = data.resumeImgUrl ?? userProfile?.imageUrl ?? null;
     // 포지션 레코드 조회
     const positionRecords: Position[] = await prisma.position.findMany({
       where: {
@@ -49,6 +55,7 @@ export const resumeRepository = {
       data: {
         userId: profileId,
         title: data.title ?? "AI 생성 이력서",
+        resumeImgUrl,
         summary: data.summary,
         isPublic: data.isPublic ?? false,
         experienceNote: experienceNote ?? "",
@@ -91,8 +98,11 @@ export const resumeRepository = {
   getResumesByProfile: (userId: string) => {
     return prisma.resume.findMany({
       where: { userId },
-      include: {
-        ...userProfileInclude,
+      select: {
+        id: true,
+        userId: true,
+        ...userProfileSelect,
+        resumeImgUrl: true,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -106,17 +116,34 @@ export const resumeRepository = {
         },
         activities: true,
         certificates: true,
+        title: true,
+        summary: true,
+        experienceNote: true,
+        isPublic: true,
+        theme: true,
+        categories: true,
+        favoriteCount: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   },
 
+
   getResumeById: (resumeId: string) => {
     return prisma.resume.findUnique({
       where: { id: resumeId },
-      include: {
-        ...userProfileInclude,
-        skills: { include: { skill: true } },
-        positions: { include: { position: true } },
+      select: {
+        id: true,
+        userId: true,
+        ...userProfileSelect,
+        resumeImgUrl: true, // 일반 컬럼은 select에 넣음
+        skills: {
+          include: { skill: true },
+        },
+        positions: {
+          include: { position: true },
+        },
         projects: {
           include: {
             project: {
@@ -128,6 +155,15 @@ export const resumeRepository = {
         },
         activities: true,
         certificates: true,
+        title: true,
+        summary: true,
+        experienceNote: true,
+        isPublic: true,
+        theme: true,
+        categories: true,
+        favoriteCount: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   },
@@ -135,6 +171,7 @@ export const resumeRepository = {
   updateResume: async (resumeId: string, updateData: any) => {
     const {
       title,
+      resumeImgUrl,
       summary,
       experienceNote,
       isPublic,
@@ -149,6 +186,7 @@ export const resumeRepository = {
 
     const updatePayload: any = {};
     if (title !== undefined) updatePayload.title = title;
+    if (resumeImgUrl !== undefined) updatePayload.resumeImgUrl = resumeImgUrl;
     if (summary !== undefined) updatePayload.summary = summary;
     if (experienceNote !== undefined) updatePayload.experienceNote = experienceNote;
     if (isPublic !== undefined) updatePayload.isPublic = isPublic;
@@ -262,8 +300,11 @@ export const resumeRepository = {
   getAllPublicResumes: () => {
     return prisma.resume.findMany({
       where: { isPublic: true },
-      include: {
-        ...userProfileInclude,
+      select: {
+        id: true,
+        userId: true,
+        ...userProfileSelect,
+        resumeImgUrl: true,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -277,6 +318,15 @@ export const resumeRepository = {
         },
         activities: true,
         certificates: true,
+        title: true,
+        summary: true,
+        experienceNote: true,
+        isPublic: true,
+        theme: true,
+        categories: true,
+        favoriteCount: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   },
@@ -302,8 +352,11 @@ export const resumeRepository = {
     return prisma.resume.findMany({
       where,
       orderBy,
-      include: {
-        ...userProfileInclude,
+      select: {
+        id: true,
+        userId: true,
+        ...userProfileSelect,
+        resumeImgUrl: true,
         skills: { include: { skill: true } },
         positions: { include: { position: true } },
         projects: {
@@ -315,6 +368,15 @@ export const resumeRepository = {
         },
         activities: true,
         certificates: true,
+        title: true,
+        summary: true,
+        experienceNote: true,
+        isPublic: true,
+        theme: true,
+        categories: true,
+        favoriteCount: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   },

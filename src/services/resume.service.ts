@@ -39,6 +39,7 @@ interface RawResume {
   id: string;
   userId: string;
   title: string;
+  resumeImgUrl?: string | null;
   summary?: string | null;
   experienceNote?: string | null;
   theme?: string | null;
@@ -137,6 +138,7 @@ function formatResumeData(raw: RawResume & { user: { profile: { nickname: string
     nickname: raw.user?.profile?.nickname,
     imageUrl: raw.user?.profile?.imageUrl ?? null,
     title: raw.title,
+    resumeImgUrl: raw.resumeImgUrl ?? null,
     summary: raw.summary ?? undefined,
     experienceNote: raw.experienceNote ?? undefined,
     theme: raw.theme ?? undefined,
@@ -230,6 +232,7 @@ export const resumeService = {
       {
         ...parsed,
         title: requestBody.title ?? "AI 생성 이력서",
+        resumeImgUrl: requestBody.resumeImgUrl ?? null,
         isPublic: requestBody.isPublic ?? false,
         theme: requestBody.theme ?? "light",
         projects: mappedProjects,
