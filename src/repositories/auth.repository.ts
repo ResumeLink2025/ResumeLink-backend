@@ -46,15 +46,6 @@ export class AuthRepository {
         authProvider,
         authProviderId,
         email,
-        profile: {
-          create: {
-            nickname: name ?? '',
-            birthday: new Date('2000-01-01'),
-          },
-        },
-      },
-      include: {
-        profile: true,
       },
     });
   }
