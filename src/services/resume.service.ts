@@ -24,13 +24,13 @@ interface SkillInput {
 interface ActivityInput {
   title: string;
   description?: string;
-  startDate?: string;
-  endDate?: string;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 interface CertificateInput {
   name: string;
-  date?: string;
+  date?: string | null;
   grade?: string;
   issuer?: string;
 }
@@ -100,15 +100,15 @@ function mapActivities(activities: ActivityInput[]): ActivityInput[] {
   return activities.map((act) => ({
     title: act.title,
     description: act.description ?? "",
-    startDate: act.startDate,
-    endDate: act.endDate,
+    startDate: act.startDate ? new Date(act.startDate).toISOString() : null,
+    endDate: act.endDate ? new Date(act.endDate).toISOString() : null,
   }));
 }
 
 function mapCertificates(certificates: CertificateInput[]): CertificateInput[] {
   return certificates.map((cert) => ({
     name: cert.name,
-    date: cert.date,
+    date: cert.date ? new Date(cert.date).toISOString() : null,
     grade: cert.grade ?? "",
     issuer: cert.issuer ?? "",
   }));
@@ -265,26 +265,63 @@ export const resumeService = {
     });
   },
 
-  updateResume: async (resumeId: string, userId: string, updateData: Partial<ResumeRequestBody>) => {
-    const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
-    if (!userProfile) throw new Error("프로필이 존재하지 않습니다.");
+updateResume: async (resumeId: string, userId: string, updateData: Partial<ResumeRequestBody>) => {
+  // 1. 사용자 프로필 확인
+  const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });
+  if (!userProfile) {
+    throw new Error("프로필이 존재하지 않습니다.");
+  }
 
-    const resume = await resumeRepository.getResumeById(resumeId);
-    if (!resume || resume.userId !== userProfile.id) throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
+  // 2. 이력서 존재 여부 및 권한 확인
+  const resume = await resumeRepository.getResumeById(resumeId);
+  if (!resume || resume.userId !== userProfile.id) {
+    throw new Error("수정 권한이 없거나 이력서를 찾을 수 없습니다.");
+  }
 
-    const mappedProjects = updateData.projects ? mapProjects(convertProjectsForUpdate(updateData.projects)) : undefined;
-    const mappedActivities = updateData.activities ? mapActivities(updateData.activities) : undefined;
-    const mappedCertificates = updateData.certificates ? mapCertificates(updateData.certificates) : undefined;
+  // 3. 중첩된 데이터 매핑 및 변환
+  let mappedProjects = undefined;
+  if (updateData.projects) {
+    try {
+      mappedProjects = mapProjects(convertProjectsForUpdate(updateData.projects));
+    } catch (e) {
+      throw new Error("프로젝트 데이터 처리 중 오류 발생");
+    }
+  }
 
-    const updatedResume = await resumeRepository.updateResume(resumeId, {
-      ...updateData,
-      projects: mappedProjects,
-      activities: mappedActivities,
-      certificates: mappedCertificates,
-    });
+  let mappedActivities = undefined;
+  if (updateData.activities) {
+    try {
+      mappedActivities = mapActivities(updateData.activities);
+    } catch (e) {
+      throw new Error("활동 데이터 처리 중 오류 발생");
+    }
+  }
 
+  let mappedCertificates = undefined;
+  if (updateData.certificates) {
+    try {
+      mappedCertificates = mapCertificates(updateData.certificates);
+    } catch (e) {
+      throw new Error("자격증 데이터 처리 중 오류 발생");
+    }
+  }
+
+  // 최종 업데이트 데이터 구성
+  const finalUpdateData = {
+    ...updateData,
+    projects: mappedProjects,
+    activities: mappedActivities,
+    certificates: mappedCertificates,
+  };
+
+  // 4. 이력서 업데이트 실행
+  try {
+    const updatedResume = await resumeRepository.updateResume(resumeId, finalUpdateData);
     return updatedResume;
-  },
+  } catch (e) {
+    throw e;
+  }
+},
 
   deleteResume: async (resumeId: string, userId: string) => {
     const userProfile = await prisma.userProfile.findUnique({ where: { id: userId } });

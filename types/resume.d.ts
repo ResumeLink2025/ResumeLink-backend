@@ -25,14 +25,14 @@ export interface ResumeRequestBody {
 
   activities?: {
     title: string;
-    startDate?: string;       // "YYYY-MM-DD" 형식 권장
-    endDate?: string;
+    startDate?: string | null;       // "YYYY-MM-DD" 형식 권장
+    endDate?: string | null;
     description?: string;
   }[];
 
   certificates?: {
     name: string;
-    date?: string;           // "YYYY-MM-DD"
+    date?: string | null;           // "YYYY-MM-DD"
     grade?: string;          // 점수 or 급수
     issuer?: string;         // 발급기관
   }[];
