@@ -6,7 +6,7 @@ import { resumeRepository } from "../repositories/resume.repository";
 import type { AiProjectInfo, ResumeRequestBody } from "../../types/resume";
 
 interface ProjectInput {
-  id?: string;
+  id: string;
   projectDesc?: string;
   aiDescription?: string;
   generalSkills?: SkillInput[];
@@ -24,13 +24,13 @@ interface SkillInput {
 interface ActivityInput {
   title: string;
   description?: string;
-  startDate?: string | Date;
-  endDate?: string | Date;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface CertificateInput {
   name: string;
-  date?: string | Date;
+  date?: string;
   grade?: string;
   issuer?: string;
 }
@@ -39,6 +39,7 @@ interface RawResume {
   id: string;
   userId: string;
   title: string;
+  resumeImgUrl?: string | null;
   summary?: string | null;
   experienceNote?: string | null;
   theme?: string | null;
@@ -73,10 +74,6 @@ interface RawResume {
   favoriteCount?: number;
 }
 
-function convertGeneralSkills(skills: string[]): SkillInput[] {
-  return skills.map((name) => ({ skill: { name } }));
-}
-
 function convertProjectsForUpdate(aiProjects: AiProjectInfo[]): ProjectInput[] {
   return aiProjects.map(proj => ({
     id: proj.id,
@@ -88,43 +85,30 @@ function convertProjectsForUpdate(aiProjects: AiProjectInfo[]): ProjectInput[] {
   }));
 }
 
-function mapProjects(projects: ProjectInput[]): {
-  id?: string;
-  aiDescription: string;
-  generalSkills: SkillInput[];
-  customSkills: string[];
-}[] {
+function mapProjects(projects: ProjectInput[]): AiProjectInfo[] {
   return projects.map((proj) => ({
     id: proj.id,
+    projectName: proj.projectName ?? "",
     aiDescription: proj.projectDesc ?? proj.aiDescription ?? "",
-    generalSkills: proj.generalSkills ?? [],
+    role: proj.role ?? "",
+    generalSkills: proj.generalSkills?.map(s => s.skill?.name ?? "") ?? [],
     customSkills: proj.customSkills ?? [],
   }));
 }
 
-function mapActivities(activities: ActivityInput[]): {
-  title: string;
-  description: string;
-  startDate?: Date;
-  endDate?: Date;
-}[] {
+function mapActivities(activities: ActivityInput[]): ActivityInput[] {
   return activities.map((act) => ({
     title: act.title,
     description: act.description ?? "",
-    startDate: act.startDate ? (typeof act.startDate === "string" ? new Date(act.startDate) : act.startDate) : undefined,
-    endDate: act.endDate ? (typeof act.endDate === "string" ? new Date(act.endDate) : act.endDate) : undefined,
+    startDate: act.startDate,
+    endDate: act.endDate,
   }));
 }
 
-function mapCertificates(certificates: CertificateInput[]): {
-  name: string;
-  date?: Date;
-  grade: string;
-  issuer: string;
-}[] {
+function mapCertificates(certificates: CertificateInput[]): CertificateInput[] {
   return certificates.map((cert) => ({
     name: cert.name,
-    date: cert.date ? (typeof cert.date === "string" ? new Date(cert.date) : cert.date) : undefined,
+    date: cert.date,
     grade: cert.grade ?? "",
     issuer: cert.issuer ?? "",
   }));
@@ -137,6 +121,7 @@ function formatResumeData(raw: RawResume & { user: { profile: { nickname: string
     nickname: raw.user?.profile?.nickname,
     imageUrl: raw.user?.profile?.imageUrl ?? null,
     title: raw.title,
+    resumeImgUrl: raw.resumeImgUrl ?? null,
     summary: raw.summary ?? undefined,
     experienceNote: raw.experienceNote ?? undefined,
     theme: raw.theme ?? undefined,
@@ -157,12 +142,12 @@ function formatResumeData(raw: RawResume & { user: { profile: { nickname: string
     activities: raw.activities?.map((act) => ({
       title: act.title,
       description: act.description ?? "",
-      startDate: act.startDate,
-      endDate: act.endDate ?? undefined,
+      startDate: act.startDate ? act.startDate.toISOString() : undefined,
+      endDate: act.endDate ? act.endDate.toISOString() : undefined,
     })) ?? [],
     certificates: raw.certificates?.map((cert) => ({
       name: cert.name,
-      date: cert.date ?? undefined,
+      date: cert.date ? cert.date.toISOString() : undefined,
       grade: cert.grade,
       issuer: cert.issuer,
     })) ?? [],
@@ -230,6 +215,7 @@ export const resumeService = {
       {
         ...parsed,
         title: requestBody.title ?? "AI 생성 이력서",
+        resumeImgUrl: requestBody.resumeImgUrl ?? userProfile.imageUrl ?? null,
         isPublic: requestBody.isPublic ?? false,
         theme: requestBody.theme ?? "light",
         projects: mappedProjects,
@@ -368,11 +354,15 @@ export const resumeService = {
       });
 
       if (isFavorited) {
-        await tx.resumeFavorite.deleteMany({ where: { userId, resumeId } });
-        await tx.resume.update({
-          where: { id: resumeId },
-          data: { favoriteCount: { decrement: 1 } },
-        });
+        const deleteResult = await tx.resumeFavorite.deleteMany({ where: { userId, resumeId } });
+
+        if (deleteResult.count > 0) {
+          await tx.resume.update({
+            where: { id: resumeId },
+            data: { favoriteCount: { decrement: 1 } },
+          });
+        }
+
         return { favorited: false };
       } else {
         await tx.resumeFavorite.create({ data: { userId, resumeId } });
@@ -380,6 +370,7 @@ export const resumeService = {
           where: { id: resumeId },
           data: { favoriteCount: { increment: 1 } },
         });
+
         return { favorited: true };
       }
     });

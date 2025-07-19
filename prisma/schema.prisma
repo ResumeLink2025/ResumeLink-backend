@@ -141,6 +141,7 @@ model Resume {
   updatedAt       DateTime            @updatedAt
   resumeFavorites ResumeFavorite[]
   favoriteCount   Int                 @default(0)
+  resumeImgUrl    String?
 
   @@index([userId])
   @@index([createdAt])
